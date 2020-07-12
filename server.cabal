@@ -25,7 +25,10 @@ source-repository head
 
 library
   exposed-modules:
+      App
+      Auth
       Entities
+      Entry
       Lib
       Query
   other-modules:
