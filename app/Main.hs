@@ -22,7 +22,9 @@ import           Database.PostgreSQL.Simple
                                          hiding ( Query )
 import           Network.HTTP.Types             ( status200
                                                 , status400
+                                                , status401
                                                 , status500
+                                                , Status(..)
                                                 )
 import           Network.Wai
 import           Network.Wai.Handler.Warp       ( run )
@@ -30,24 +32,18 @@ import           Query
 import           System.Random
 import           System.Random
 import           Web.JWT
+import qualified Web.JWT as JWT
 import qualified Data.ByteString.Lazy          as B
+import qualified Data.Aeson                    as J
+import qualified Data.Aeson.Types              as J
+import           Data.Aeson ((.=))
+import qualified Data.Map.Strict as Map
+import           Data.Foldable
 
-
--- type Application = Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
-{-
-app :: Application
-app r respond = do
-    putStrLn "I've done some IO here"
-    print r
-    respond $ responseLBS
-        status200
-        [("Content-Type", "text/plain")]
-        "Hello, Web!"
--}
 type App = (Response -> IO ResponseReceived) -> IO ResponseReceived
 
 data AppResponse =
-    Ok Text
+    AppOk J.Value
   | BadRequest
   | InternalError
   | AccessDenied
@@ -60,18 +56,61 @@ generateJWT secrets admin name password = do
   (secret:_) <- readMVar secrets
   let header = mempty { alg = Just HS256 }
       claims = mempty {
-          iss = stringOrURI "thiswebserver"
-        , sub = stringOrURI name
-        , Web.JWT.exp = numericDate (now + 60 * 60)
+          sub = stringOrURI name
+        , JWT.exp = numericDate (now + 60 * 60)
+        , unregisteredClaims = ClaimsMap $ Map.fromList
+            [ "admin" .= admin
+            , "author" .= False ]
         }
   return $ encodeSigned secret header claims
+
+data JWTVerification a =
+    JWTOk a
+  | JWTExp
+  | JWTReject
+
+instance Functor JWTVerification where
+  fmap f (JWTOk a) = JWTOk (f a)
+  fmap f JWTExp    = JWTExp
+  fmap f JWTReject = JWTReject
+
+instance Applicative JWTVerification where
+  pure = JWTOk
+  (JWTOk f) <*> (JWTOk a) = JWTOk (f a)
+  JWTExp    <*> _         = JWTExp
+  JWTReject <*> _         = JWTReject
+
+instance Monad JWTVerification where
+  (JWTOk a) >>= f = f a
+  JWTExp    >>= _ = JWTExp
+  JWTReject >>= _ = JWTReject
+
+verifyJWT :: Secrets -> Text -> IO (JWTVerification (Text, Bool, Bool))
+verifyJWT secrets jwt = do
+  now  <- getPOSIXTime
+  keys <- readMVar secrets
+  return $ do
+    verified <- mb . asum . flip map keys $ \k -> decodeAndVerifySignature k jwt
+    let cs = claims verified
+    expires <- mb $ JWT.exp cs
+    if secondsSinceEpoch expires < now
+      then JWTExp
+      else mb $ do
+        name   <- JWT.sub cs
+        admin  <- lc "admin" cs
+        author <- lc "author" cs
+        return (stringOrURIToText name, admin, author)
+ where
+  lc c cs = J.parseMaybe J.parseJSON
+    =<< Map.lookup c (unClaimsMap $ unregisteredClaims cs)
+  mb = maybe JWTReject JWTOk
 
 register (UserName name, LastName lastName, Password password) db = do
   dbres <- execute
     db
     "INSERT INTO users  (name, lastname, registrationdate, admin, password) VALUES (?, ?, current_timestamp, false, ?)"
     (name, lastName, password)
-  return $ Ok ("Hellow " <> (pack . show $ dbres))
+  return $ AppOk $ J.Bool True
 
 defaultDbHandlers =
     [ Handler (\(e :: FormatError) -> return InternalError)
@@ -80,13 +119,16 @@ defaultDbHandlers =
 
 login genToken (UserName name, Password password) db =
   flip catches (Handler (\(e :: QueryError) -> return AccessDenied) : defaultDbHandlers) $ do
-    [Only admin] <- query
+    q <- query
       db
       "SELECT admin FROM users WHERE name = ? AND password = ?"
       (name, password)
-    token <- genToken admin name password
-    return $ Ok token
-
+    case q of
+      [Only admin] -> do
+        print admin
+        token <- genToken admin name password
+        return . AppOk $ J.String token
+      _ -> return AccessDenied
 
 newtype UserName = UserName Text
 newtype LastName = LastName Text
@@ -106,28 +148,33 @@ app secrets db req respond = do
   print req
   case pathInfo req of
     ["posts"   ] -> posts req respond
-    ["register"] -> towai $ register
-    ["login"   ] -> towai $ login $ generateJWT secrets
-    _            -> respond
-      $ responseLBS status400 [("Content-Type", "text/plain")] "Bad request"
+    ["register"] -> towai register
+    ["login"   ] -> towai . login $ generateJWT secrets
+    _            -> respond $ err status400
  where
   towai :: Query q => (q -> Connection -> IO AppResponse) -> IO ResponseReceived
-  towai f = case parseQuery (queryString req) of
-    Just q -> f q db >>= \res -> case res of
-      Ok txt ->
-        respond $ responseLBS status200 [("Content-Type", "text/plain")] $ B.fromStrict $ encodeUtf8 txt
-      BadRequest    -> badRequest
-      InternalError -> respond $ responseLBS status500
-                                             [("Content-Type", "text/plain")]
-                                             "Internal server error"
-    Nothing -> badRequest
-  badRequest = respond $ responseLBS status400
-                                     [("Content-Type", "text/plain")]
-                                     "Bad request query"
+  towai f = respond =<< case parseQuery (queryString req) of
+    Just q -> f q db >>= \res -> return $ case res of
+      AppOk txt -> ok txt
+      BadRequest    -> err status400
+      InternalError -> err status500
+      AccessDenied  -> err status401
+    Nothing -> return $ err status400
+  json status x =
+    responseLBS status [("Content-Type", "application/json")]
+      . J.encode
+      . J.object
+      $ x
+  ok x = json status200 $
+      [ "ok" .= True
+      , "response" .= x ]
+  err status = json status $
+      [ "ok" .= False
+      , "code" .= statusCode status
+      , "error" .= (decodeUtf8 $ statusMessage status) ]
 
 posts :: Application
-posts req respond =
-  respond $ responseLBS status200 [("Content-Type", "text/plain")] "Hellow"
+posts req respond = undefined
 
 generateSecret = hmacSecret . pack <$> replicateM 30 randomIO
 

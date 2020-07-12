@@ -30,6 +30,8 @@ dependencies:
 - jwt               == 0.10.*
 - time              == 1.*
 - random            == 1.*
+- aeson             == 1.*
+- containers        == 0.6.*
 
 library:
   source-dirs: src

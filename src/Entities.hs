@@ -7,9 +7,18 @@ import Data.Text(Text,pack,unpack)
 type Date = ()
 
 data Author = Author
-    { user_id     :: Int
+    { username    :: Int
     , description :: Text
     }
+
+data User = User
+  { name             :: Text
+  , lastName         :: Text
+  , avatar           :: Text
+  -- , registrationDate :: Integer
+  , admin            :: Bool
+  , author           :: Bool
+  }
 
 data Category =
     Category Text
