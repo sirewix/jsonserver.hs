@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS posts CASCADE;
 DROP TABLE IF EXISTS tags CASCADE;
 DROP TABLE IF EXISTS categories CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS authors CASCADE;
 DROP TABLE IF EXISTS tag_post_relations CASCADE;
 
 CREATE TABLE users (
@@ -10,20 +11,21 @@ CREATE TABLE users (
   , avatar           varchar (20)
   , registrationDate date
   , admin            bool DEFAULT false
-  , password         varchar (20)
+  , password         varchar (30)
 );
-
-INSERT INTO users  (name, lastname, registrationdate, admin, password) VALUES ('admin', 'Juohanpeohanovitch', current_timestamp, true, '123');
 
 CREATE TABLE authors (
     author_id   serial PRIMARY KEY
+  , username    varchar (20) REFERENCES users
   , description text
-) INHERITS (users);
+);
+
+INSERT INTO users  (name, lastname, registrationdate, admin, password)
+     VALUES ('admin', 'Juohanpeohanovitch', current_timestamp, true, '123');
 
 CREATE TABLE categories (
-    id            serial PRIMARY KEY
-  , name          varchar (50)
-  , subcategoryOf serial REFERENCES categories
+    name          varchar (50) PRIMARY KEY
+  , subcategoryOf varchar (50) REFERENCES categories
 );
 
 CREATE TABLE tags (
@@ -35,8 +37,8 @@ CREATE TABLE posts (
     id        serial PRIMARY KEY
   , title     varchar (50)
   , date      date
-  , author    serial REFERENCES authors
-  , category  serial REFERENCES categories
+  , author    varchar (20) REFERENCES users
+  , category  varchar (50) REFERENCES categories
   , content   text
   , mainImage varchar (20)
   , images    varchar (20) []
