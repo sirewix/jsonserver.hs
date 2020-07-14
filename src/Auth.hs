@@ -11,6 +11,7 @@ module Auth
     , updateSecrets
     , generateJWT
     , verifyJWT
+    , runJWT
     ) where
 
 import           App
@@ -61,25 +62,26 @@ instance Monad JWTVerification where
   JWTReject >>= _ = JWTReject
 
 
-generateJWT :: Secrets -> Bool -> Text -> Text -> IO Text
-generateJWT secrets admin name password = do
-  now <- getPOSIXTime
-  (secret:_) <- readMVar secrets
+generateJWT :: (Bool, Bool, Text, Text) -> (NominalDiffTime, [Signer]) -> Text
+generateJWT (admin, author, name, password) (now, (secret:_))  = do
   let header = mempty { alg = Just HS256 }
       claims = mempty {
           sub = stringOrURI name
         , JWT.exp = numericDate (now + 60 * 60)
         , unregisteredClaims = ClaimsMap $ Map.fromList
             [ "admin" .= admin
-            , "author" .= False ]
+            , "author" .= author ]
         }
-  return $ encodeSigned secret header claims
+   in encodeSigned secret header claims
 
-verifyJWT :: Secrets -> Maybe Text -> Text -> IO (JWTVerification UserName)
-verifyJWT secrets need jwt = do
+runJWT :: Secrets -> IO (NominalDiffTime, [Signer])
+runJWT secrets = do
   now  <- getPOSIXTime
   keys <- readMVar secrets
-  return $ do
+  return (now, keys)
+
+verifyJWT :: Maybe Text -> Text -> (NominalDiffTime, [Signer]) -> JWTVerification UserName
+verifyJWT need jwt (now, keys) = do
     verified <- mb . asum . flip map keys $ \k -> decodeAndVerifySignature k jwt
     let cs = claims verified
     expires <- mb $ JWT.exp cs
@@ -108,7 +110,7 @@ login genToken (UserName name, Password password) db =
       (name, password)
     case q of
       [Only admin] -> do
-        token <- genToken admin name password
+        token <- genToken (admin, False, name, password)
         return . AppOk $ J.String token
       _ -> return AccessDenied
 

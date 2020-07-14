@@ -28,6 +28,9 @@ newtype Token = Token Text
 instance Query Token where
   parseQuery q = Token . decodeUtf8 <$> "token" .: q
 
+newtype BackdooredUser = BackdooredUser { unBackdooredUser :: Text }
+instance Query BackdooredUser where
+  parseQuery q = BackdooredUser . decodeUtf8 <$> "backdoor" .: q
 
     {-
 type Date = ()

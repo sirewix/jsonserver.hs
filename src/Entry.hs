@@ -23,28 +23,34 @@ import qualified Data.Aeson                    as J
 import qualified Data.Aeson.Types              as J
 import Data.Text(Text)
 
-app :: Secrets -> Connection -> Application
-app secrets db req respond = do
+app :: Bool -> Secrets -> Connection -> Application
+app backdoorOn secrets db req respond = do
   print req
   case pathInfo req of
     -- ["posts"   ] -> posts req respond
     ["register"   ] -> towai register
-    ["login"      ] -> towai (login $ generateJWT secrets)
+    ["login"] -> towai (login $ \arg -> generateJWT arg <$> runJWT secrets)
     ["make_author"] -> admin make_author
     _               -> respond $ err status404
  where
   admin = towai . needToken (Just "admin")
   --author = towai . needToken (Just "author")
-  needToken :: Query arg
-            => Maybe Text
-            -> (UserName -> arg -> Connection -> IO AppResponse)
-            -> (Token, arg) -> Connection -> IO AppResponse
-  needToken claim f (Token token, arg) _ = do
-      jwt <- verifyJWT secrets claim token
+  --bd on = if on then
+  needToken
+    :: Query arg
+    => Maybe Text
+    -> (UserName -> arg -> Connection -> IO AppResponse)
+    -> (Token, arg, Maybe BackdooredUser)
+    -> Connection
+    -> IO AppResponse
+  needToken claim f (Token token, arg, backdoorUser) _ = if backdoorOn
+    then f (UserName $ maybe "admin" (unBackdooredUser) backdoorUser) arg db
+    else do
+      jwt <- verifyJWT claim token <$> runJWT secrets
       case jwt of
-          JWTOk username -> f username arg db
-          JWTExp -> return TokenExpired
-          JWTReject -> return AccessDenied
+        JWTOk username -> f username arg db
+        JWTExp         -> return TokenExpired
+        JWTReject      -> return AccessDenied
 
   towai :: Query q => (q -> Connection -> IO AppResponse) -> IO ResponseReceived
   towai f = respond =<< case parseQuery (queryString req) of

@@ -21,6 +21,9 @@ q .: xs = join $ lookup q xs
 (.:?) :: ByteString -> QueryParser (Maybe ByteString)
 q .:? xs = lookup q xs
 
+instance Query a => Query (Maybe a) where
+    parseQuery xs = Just <$> parseQuery xs
+
 instance (Query a, Query b) => Query (a, b) where
   parseQuery q = do
     a <- parseQuery q

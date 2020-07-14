@@ -16,8 +16,8 @@ data AppResponse =
   | TokenExpired
 
 defaultDbHandlers =
-  [ Handler (\(e :: FormatError) -> return InternalError)
-  , Handler (\(e :: ResultError) -> return InternalError)
-  , Handler (\(e :: SqlError) -> return InternalError)
+  [ Handler (\(e :: FormatError) -> print e >> return InternalError)
+  , Handler (\(e :: ResultError) -> print e >> return InternalError)
+  , Handler (\(e :: SqlError) -> print e >> return InternalError)
   ]
 
