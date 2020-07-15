@@ -2,7 +2,7 @@
   OverloadedStrings
 , ScopedTypeVariables
 #-}
-module Administration
+module Authors
     ( make_author
     , get_authors
     , edit_author
@@ -25,18 +25,27 @@ get_authors (UserName admin) () (log, db) =
 
 make_author (UserName admin) (UserName name, Description description) (log, db) =
   catchDb log (return BadRequest) $ do
-    execute db "INSERT INTO authors (username, description) VALUES (?, ?)" (name, description)
-    log Info $ admin <> " promoted " <> name <> " to authors with description \"" <> description <> "\""
-    return . AppOk $ J.Null
+    dbres <- execute db "INSERT INTO authors (username, description) VALUES (?, ?)" (name, description)
+    if dbres == 1
+      then do
+        log Info $ admin <> " promoted " <> name <> " to authors with description \"" <> description <> "\""
+        return . AppOk $ J.Null
+      else return BadRequest
 
 edit_author (UserName admin) (UserName name, Description description) (log, db) =
   catchDb log (return BadRequest) $ do
-    execute db "UPDATE authors SET description = ? WHERE username = ?" (description, name)
-    log Info $ admin <> " edited " <> name <> "'s description  to \"" <> description <> "\""
-    return . AppOk $ J.Null
+    dbres <- execute db "UPDATE authors SET description = ? WHERE username = ?" (description, name)
+    if dbres == 1
+      then do
+        log Info $ admin <> " edited " <> name <> "'s description to \"" <> description <> "\""
+        return . AppOk $ J.Null
+      else return BadRequest
 
 delete_author (UserName admin) (UserName name) (log, db) =
   catchDb log (return BadRequest) $ do
-    execute db "DELETE FROM authors WHERE username = ?" [name]
-    log Info $ admin <> " exiled " <> name <> " from authors guild"
-    return . AppOk $ J.Null
+    dbres <- execute db "DELETE FROM authors WHERE username = ?" [name]
+    if dbres == 1
+      then do
+        log Info $ admin <> " exiled " <> name <> " from authors guild"
+        return . AppOk $ J.Null
+      else return BadRequest

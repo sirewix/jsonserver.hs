@@ -47,6 +47,13 @@ instance Query Author where
     <$> (decodeUtf8 <$> "username" .: q)
     <*> (decodeUtf8 <$> "description" .: q)
 
+newtype Tag = Tag Text
+    deriving (Generic, FromRow, ToJSON)
+
+instance Query Tag where
+  parseQuery q = Tag . decodeUtf8 <$> "tag" .: q
+
+
     {-
 type Date = ()
 
@@ -64,7 +71,6 @@ data Category =
   | SubCategory Category Text
 
 type Image = ()
-type Tag = Text
 
 data Post = Post
     { _id       :: Int

@@ -71,8 +71,9 @@ main = do
 
   keys    <- replicateM (number_of_secrets config) generateSecret
   secrets <- newMVar keys
-  void . forkIO $ do
+  upd_thread <- forkIO $ do
     threadDelay $ 1000000 * 60 * (secrets_update_interval config)
     log Info $ "Updating keys"
     updateSecrets secrets
   run (port config) (app (backdoor config) secrets (log, db))
+  killThread upd_thread

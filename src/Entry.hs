@@ -4,7 +4,7 @@
 #-}
 module Entry (app) where
 
-import           Administration
+import           Authors
 import           App
 import           Auth
 import           Misc
@@ -27,26 +27,33 @@ import qualified Data.Aeson                    as J
 import qualified Data.Aeson.Types              as J
 import           Data.Text(Text)
 import           Logger
+import           Tags
 
 app :: Bool -> Secrets -> (Logger, Connection) -> Application
 app backdoorOn secrets env@(log, _) req respond = do
   log Debug $ showText req
   case pathInfo req of
     -- ["posts"   ] -> posts req respond
-    ["register"   ] -> towai register
-    ["login"] -> towai (login $ \arg -> generateJWT arg <$> runJWT secrets)
-    ["make_author"] -> admin $ make_author
-    ["get_authors"] -> admin $ get_authors
-    ["edit_author"] -> admin $ edit_author
-    ["delete_author"] -> admin $ delete_author
-    _               -> respond $ err status404
+    ["register"     ] -> public register
+    ["login"] -> public (login $ \arg -> generateJWT arg <$> runJWT secrets)
+
+    ["make_author"  ] -> admin make_author
+    ["get_authors"  ] -> admin get_authors
+    ["edit_author"  ] -> admin edit_author
+    ["delete_author"] -> admin delete_author
+
+    ["get_tags"     ] -> public get_tags
+    ["create_tag"   ] -> admin create_tag
+    ["edit_tag"     ] -> admin edit_tag
+    ["delete_tag"   ] -> admin delete_tag
+    _               -> respond $ err status400
  where
   admin
     :: Query arg
     => (UserName -> arg -> (Logger, Connection) -> IO AppResponse)
     -> IO ResponseReceived
-  admin = towai . needToken (Just "admin")
-  --author = towai . needToken (Just "author")
+  admin = public . needToken (Just "admin")
+  --author = public . needToken (Just "author")
   needToken
     :: Query arg
     => Maybe Text
@@ -63,8 +70,8 @@ app backdoorOn secrets env@(log, _) req respond = do
         JWTExp         -> return TokenExpired
         JWTReject      -> return AccessDenied
 
-  towai :: Query q => (q -> (Logger, Connection) -> IO AppResponse) -> IO ResponseReceived
-  towai f = respond =<< case parseQuery (queryString req) of
+  public :: Query q => (q -> (Logger, Connection) -> IO AppResponse) -> IO ResponseReceived
+  public f = respond =<< case parseQuery (queryString req) of
     Just q -> f q env <&> \res -> case res of
       AppOk txt     -> ok txt
       BadRequest    -> err status400

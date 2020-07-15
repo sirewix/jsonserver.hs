@@ -28,8 +28,7 @@ CREATE TABLE categories (
 );
 
 CREATE TABLE tags (
-    id  serial PRIMARY KEY
-  , tag varchar (20)
+    tag varchar (20) PRIMARY KEY
 );
 
 CREATE TABLE posts (
@@ -45,6 +44,6 @@ CREATE TABLE posts (
 );
 
 CREATE TABLE tag_post_relations (
-    tag  serial REFERENCES tags
+    tag  varchar (20) REFERENCES tags
   , post serial REFERENCES posts
 );

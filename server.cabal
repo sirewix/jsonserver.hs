@@ -25,15 +25,16 @@ source-repository head
 
 library
   exposed-modules:
-      Administration
       App
       Auth
+      Authors
       Entities
       Entry
       Lib
       Logger
       Misc
       Query
+      Tags
   other-modules:
       Paths_server
   hs-source-dirs:
