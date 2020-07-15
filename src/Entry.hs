@@ -36,8 +36,15 @@ app backdoorOn secrets env@(log, _) req respond = do
     ["register"   ] -> towai register
     ["login"] -> towai (login $ \arg -> generateJWT arg <$> runJWT secrets)
     ["make_author"] -> admin $ make_author
+    ["get_authors"] -> admin $ get_authors
+    ["edit_author"] -> admin $ edit_author
+    ["delete_author"] -> admin $ delete_author
     _               -> respond $ err status404
  where
+  admin
+    :: Query arg
+    => (UserName -> arg -> (Logger, Connection) -> IO AppResponse)
+    -> IO ResponseReceived
   admin = towai . needToken (Just "admin")
   --author = towai . needToken (Just "author")
   needToken
@@ -62,11 +69,10 @@ app backdoorOn secrets env@(log, _) req respond = do
       AppOk txt     -> ok txt
       BadRequest    -> err status400
       InternalError -> err status500
-      AccessDenied  -> err status401
-      -- AccessDenied  -> err status400 -- hiding unauthorized apis as 400
+      AccessDenied  -> err status400 -- hiding unauthorized apis as 400
       TokenExpired ->
         err $ Status { statusCode = 700, statusMessage = "Token expired" }
-    Nothing -> return $ err status200
+    Nothing -> return $ err status400
   json status x =
     responseLBS status [("Content-Type", "application/json")]
       . J.encode

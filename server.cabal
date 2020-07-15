@@ -32,6 +32,7 @@ library
       Entry
       Lib
       Logger
+      Misc
       Query
   other-modules:
       Paths_server

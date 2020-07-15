@@ -33,9 +33,9 @@ sublog :: Text -> Logger -> Logger
 sublog prefix logger = \prio msg -> logger prio (prefix <> msg)
 
 newLogger :: MVar System.IO.Handle -> Priority -> Logger
-newLogger h logPrio = \prio msg ->
-    if prio >= logPrio then do
-        now <- getCurrentTime
-        withMVar h $ \h ->
-            hPutStrLn h $ showText now <> " [" <> showText prio <> "] "  <> msg
-    else return ()
+newLogger h logPrio = \prio msg -> if prio >= logPrio
+  then do
+    now <- getCurrentTime
+    withMVar h $ \h ->
+      hPutStrLn h $ showText now <> " [" <> showText prio <> "] " <> msg
+  else return ()

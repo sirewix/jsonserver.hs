@@ -1,18 +1,23 @@
 {-# LANGUAGE
   DuplicateRecordFields
 , OverloadedStrings
+, DeriveAnyClass
+, DeriveGeneric
 #-}
 module Entities where
-import Data.Text(Text,pack,unpack)
-import Query
+import           Data.Aeson (ToJSON)
+import           Data.Text                      ( Text)
 import           Data.Text.Encoding
+import           Database.PostgreSQL.Simple hiding (Query)
+import           GHC.Generics
+import           Query
 
 newtype UserName = UserName Text
 newtype LastName = LastName Text
 newtype Password = Password Text
 
 instance Query UserName where
-  parseQuery q = UserName . decodeUtf8 <$> "name" .: q
+  parseQuery q = UserName . decodeUtf8 <$> "username" .: q
 
 instance Query LastName where
   parseQuery q = LastName . decodeUtf8 <$> "lastname" .: q
@@ -33,14 +38,14 @@ instance Query BackdooredUser where
   parseQuery q = BackdooredUser . decodeUtf8 <$> "backdoor" .: q
 
 data Author = Author
-    { username    :: Text
-    , description :: Text
-    }
+  { username    :: Text
+  , description :: Text
+  } deriving (Generic, FromRow, ToJSON)
 
 instance Query Author where
-    parseQuery q = Author
-        <$> (decodeUtf8 <$> "username" .: q)
-        <*> (decodeUtf8 <$> "description" .: q)
+  parseQuery q = Author
+    <$> (decodeUtf8 <$> "username" .: q)
+    <*> (decodeUtf8 <$> "description" .: q)
 
     {-
 type Date = ()

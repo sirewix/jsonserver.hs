@@ -100,12 +100,13 @@ verifyJWT need jwt (now, keys) = do
   mb = maybe JWTReject JWTOk
 
 register (UserName name, LastName lastName, Password password) (log, db) = do
-  dbres <- execute
-    db
-    "INSERT INTO users (name, lastname, registrationdate, admin, password) VALUES (?, ?, current_timestamp, false, ?)"
-    (name, lastName, password)
-  log Info $ "new user" <> name <> " " <> lastName
-  return $ AppOk $ J.Bool True
+  flip catches (Handler (\(e :: QueryError) -> return BadRequest) : defaultDbHandlers log) $ do
+    dbres <- execute
+      db
+      "INSERT INTO users (name, lastname, registrationdate, admin, password) VALUES (?, ?, current_timestamp, false, ?)"
+      (name, lastName, password)
+    log Info $ "new user" <> name <> " " <> lastName
+    return $ AppOk $ J.Bool True
 
 login genToken (UserName name, Password password) (log, db) =
   flip catches (Handler (\(e :: QueryError) -> return AccessDenied) : defaultDbHandlers log) $ do

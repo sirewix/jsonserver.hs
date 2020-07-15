@@ -2,6 +2,7 @@
 module App
     ( AppResponse(..)
     , defaultDbHandlers
+    , catchDb
     ) where
 
 import           Misc
@@ -23,3 +24,4 @@ defaultDbHandlers log =
   , Handler (\(e :: SqlError   ) -> log Error (showText e) >> return InternalError)
   ]
 
+catchDb log ret = flip catches (Handler (\(e :: QueryError) -> ret) : defaultDbHandlers log)

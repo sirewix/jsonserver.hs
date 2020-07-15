@@ -15,8 +15,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE authors (
-    author_id   serial PRIMARY KEY
-  , username    varchar (20) REFERENCES users
+    username    varchar (20) REFERENCES users
   , description text
 );
 
