@@ -22,7 +22,6 @@ import           Data.Aeson                     ( (.=) )
 import           Data.Foldable
 import           Data.Text                      ( Text
                                                 , pack
-                                                , unpack
                                                 )
 import           Data.Text.Encoding
 import           Data.Time.Clock
@@ -30,6 +29,7 @@ import           Data.Time.Clock.POSIX
 import           Database.PostgreSQL.Simple
                                          hiding ( Query )
 import           Query
+import           Logger
 import           Entities
 import           System.Random
 import           Web.JWT
@@ -63,7 +63,7 @@ instance Monad JWTVerification where
 
 
 generateJWT :: (Bool, Bool, Text, Text) -> (NominalDiffTime, [Signer]) -> Text
-generateJWT (admin, author, name, password) (now, (secret:_))  = do
+generateJWT (admin, author, name, password) (now, (secret:_))  =
   let header = mempty { alg = Just HS256 }
       claims = mempty {
           sub = stringOrURI name
@@ -80,30 +80,35 @@ runJWT secrets = do
   keys <- readMVar secrets
   return (now, keys)
 
-verifyJWT :: Maybe Text -> Text -> (NominalDiffTime, [Signer]) -> JWTVerification UserName
+verifyJWT
+  :: Maybe Text
+  -> Text
+  -> (NominalDiffTime, [Signer])
+  -> JWTVerification UserName
 verifyJWT need jwt (now, keys) = do
-    verified <- mb . asum . flip map keys $ \k -> decodeAndVerifySignature k jwt
-    let cs = claims verified
-    expires <- mb $ JWT.exp cs
-    name    <- mb $ UserName . stringOrURIToText <$> JWT.sub cs
-    auth    <- mb $ maybe (Just True) (lc cs) need
-    if not auth
-      then JWTReject
-      else if secondsSinceEpoch expires < now then JWTExp else JWTOk name
+  verified <- mb . asum . flip map keys $ \k -> decodeAndVerifySignature k jwt
+  let cs = claims verified
+  expires <- mb $ JWT.exp cs
+  name    <- mb $ UserName . stringOrURIToText <$> JWT.sub cs
+  auth    <- mb $ maybe (Just True) (lc cs) need
+  if not auth
+    then JWTReject
+    else if secondsSinceEpoch expires < now then JWTExp else JWTOk name
  where
   lc cs c = J.parseMaybe J.parseJSON
     =<< Map.lookup c (unClaimsMap $ unregisteredClaims cs)
   mb = maybe JWTReject JWTOk
 
-register (UserName name, LastName lastName, Password password) db = do
+register (UserName name, LastName lastName, Password password) (log, db) = do
   dbres <- execute
     db
     "INSERT INTO users (name, lastname, registrationdate, admin, password) VALUES (?, ?, current_timestamp, false, ?)"
     (name, lastName, password)
+  log Info $ "new user" <> name <> " " <> lastName
   return $ AppOk $ J.Bool True
 
-login genToken (UserName name, Password password) db =
-  flip catches (Handler (\(e :: QueryError) -> return AccessDenied) : defaultDbHandlers) $ do
+login genToken (UserName name, Password password) (log, db) =
+  flip catches (Handler (\(e :: QueryError) -> return AccessDenied) : defaultDbHandlers log) $ do
     q <- query
       db
       "SELECT admin FROM users WHERE name = ? AND password = ?"
@@ -111,6 +116,7 @@ login genToken (UserName name, Password password) db =
     case q of
       [Only admin] -> do
         token <- genToken (admin, False, name, password)
+        log Info $ name <> " logged in"
         return . AppOk $ J.String token
       _ -> return AccessDenied
 

@@ -4,8 +4,10 @@ module App
     , defaultDbHandlers
     ) where
 
+import           Misc
 import           Control.Exception
 import           Database.PostgreSQL.Simple hiding ( Query )
+import           Logger
 import qualified Data.Aeson                    as J
 
 data AppResponse =
@@ -15,9 +17,9 @@ data AppResponse =
   | AccessDenied
   | TokenExpired
 
-defaultDbHandlers =
-  [ Handler (\(e :: FormatError) -> print e >> return InternalError)
-  , Handler (\(e :: ResultError) -> print e >> return InternalError)
-  , Handler (\(e :: SqlError) -> print e >> return InternalError)
+defaultDbHandlers log =
+  [ Handler (\(e :: FormatError) -> log Error (showText e) >> return InternalError)
+  , Handler (\(e :: ResultError) -> log Error (showText e) >> return InternalError)
+  , Handler (\(e :: SqlError   ) -> log Error (showText e) >> return InternalError)
   ]
 

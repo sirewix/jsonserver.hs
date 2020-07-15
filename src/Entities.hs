@@ -32,13 +32,18 @@ newtype BackdooredUser = BackdooredUser { unBackdooredUser :: Text }
 instance Query BackdooredUser where
   parseQuery q = BackdooredUser . decodeUtf8 <$> "backdoor" .: q
 
-    {-
-type Date = ()
-
 data Author = Author
-    { username    :: Int
+    { username    :: Text
     , description :: Text
     }
+
+instance Query Author where
+    parseQuery q = Author
+        <$> (decodeUtf8 <$> "username" .: q)
+        <*> (decodeUtf8 <$> "description" .: q)
+
+    {-
+type Date = ()
 
 data User = User
   { name             :: Text
