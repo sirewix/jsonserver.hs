@@ -29,8 +29,8 @@ create_tag (UserName admin) (Tag tag) (log, db) =
 
 instance Query EditTagOptions where
   parseQuery q = EditTagOptions
-    <$> (decodeUtf8 <$> "tag" .: q)
-    <*> (decodeUtf8 <$> "new_tag_name" .: q)
+    <$> ("tag" .: q)
+    <*> ("new_tag_name" .: q)
 
 data EditTagOptions = EditTagOptions Text Text
 

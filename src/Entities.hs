@@ -3,39 +3,42 @@
 , OverloadedStrings
 , DeriveAnyClass
 , DeriveGeneric
+, TypeSynonymInstances
+, FlexibleInstances
 #-}
 module Entities where
-import           Data.Aeson (ToJSON)
-import           Data.Text                      ( Text)
+import qualified Data.Aeson as J
+import           Data.Aeson (ToJSON,(.=))
+import           Data.Text                      ( Text, pack, unpack)
 import           Data.Text.Encoding
 import           Database.PostgreSQL.Simple hiding (Query)
 import           GHC.Generics
 import           Query
+import           Data.Maybe
+import           Database.PostgreSQL.Simple.ToField
+import           Database.PostgreSQL.Simple.Time
+import           Data.Time.Calendar
 
 newtype UserName = UserName Text
 newtype LastName = LastName Text
 newtype Password = Password Text
 
 instance Query UserName where
-  parseQuery q = UserName . decodeUtf8 <$> "username" .: q
+  parseQuery q = UserName <$> "username" .: q
 
 instance Query LastName where
-  parseQuery q = LastName . decodeUtf8 <$> "lastname" .: q
+  parseQuery q = LastName <$> "lastname" .: q
 
 instance Query Password where
-  parseQuery q = Password . decodeUtf8 <$> "password" .: q
+  parseQuery q = Password <$> "password" .: q
 
 newtype Description = Description Text
 instance Query Description where
-  parseQuery q = Description . decodeUtf8 <$> "description" .: q
+  parseQuery q = Description <$> "description" .: q
 
 newtype Token = Token Text
 instance Query Token where
-  parseQuery q = Token . decodeUtf8 <$> "token" .: q
-
-newtype BackdooredUser = BackdooredUser { unBackdooredUser :: Text }
-instance Query BackdooredUser where
-  parseQuery q = BackdooredUser . decodeUtf8 <$> "backdoor" .: q
+  parseQuery q = Token <$> "token" .: q
 
 data Author = Author
   { username    :: Text
@@ -44,28 +47,48 @@ data Author = Author
 
 instance Query Author where
   parseQuery q = Author
-    <$> (decodeUtf8 <$> "username" .: q)
-    <*> (decodeUtf8 <$> "description" .: q)
+    <$> ("username" .: q)
+    <*> ("description" .: q)
 
 newtype Tag = Tag Text
     deriving (Generic, FromRow, ToJSON)
 
 instance Query Tag where
-  parseQuery q = Tag . decodeUtf8 <$> "tag" .: q
+  parseQuery q = Tag <$> "tag" .: q
 
+data Category = Category Int Text
+    deriving (Generic, FromRow)
 
-    {-
-type Date = ()
+instance ToJSON Category where
+    toJSON (Category id name) = J.object
+        [ "cid" .= id
+        , "name" .= name ]
+
+newtype CategoryId = CategoryId Int
+    --deriving (Generic, ToField)
+
+instance ToField CategoryId where
+    toField (CategoryId cid) = toField cid
+
+instance Query CategoryId where
+  parseQuery q = CategoryId <$> (fmap fst . listToMaybe . reads . unpack =<< "cid" .: q)
+
+newtype Name = Name Text
+instance Query Name where
+  parseQuery q = Name <$> "name" .: q
 
 data User = User
-  { name             :: Text
-  , lastName         :: Text
-  , avatar           :: Text
-  -- , registrationDate :: Integer
-  , admin            :: Bool
-  , author           :: Bool
-  }
+  { name      :: Text
+  , last_name :: Text
+  , admin     :: Bool
+  , avatar    :: Text
+  , reg_date  :: Date
+  } deriving (Generic, FromRow, ToJSON)
 
+instance ToJSON Date where
+    toJSON (Finite d) = J.String $ pack $ showGregorian d
+
+    {-
 data Category =
     Category Text
   | SubCategory Category Text

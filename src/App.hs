@@ -3,6 +3,7 @@ module App
     ( AppResponse(..)
     , defaultDbHandlers
     , catchDb
+    , Endpoint
     ) where
 
 import           Misc
@@ -17,6 +18,7 @@ data AppResponse =
   | InternalError
   | AccessDenied
   | TokenExpired
+  | NotFound
 
 defaultDbHandlers log =
   [ Handler (\(e :: FormatError) -> log Error (showText e) >> return InternalError)
@@ -25,3 +27,5 @@ defaultDbHandlers log =
   ]
 
 catchDb log ret = flip catches (Handler (\(e :: QueryError) -> ret) : defaultDbHandlers log)
+
+type Endpoint = (Logger, Connection) -> IO AppResponse

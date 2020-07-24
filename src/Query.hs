@@ -8,24 +8,26 @@ module Query
   )
 where
 
+import           Data.Text.Encoding
+import           Data.Text
 import           Data.ByteString
 import           Control.Monad                  ( join )
 
 type QueryParser a = [(ByteString, Maybe ByteString)] -> Maybe a
 
+(.:) :: ByteString -> QueryParser Text
+q .: xs = decodeUtf8 <$> (join $ lookup q xs)
+(.:?) :: ByteString -> QueryParser (Maybe Text)
+q .:? xs = fmap decodeUtf8 <$> lookup q xs
+
 class Query a where
     parseQuery :: QueryParser a
-
-(.:) :: ByteString -> QueryParser ByteString
-q .: xs = join $ lookup q xs
-(.:?) :: ByteString -> QueryParser (Maybe ByteString)
-q .:? xs = lookup q xs
 
 instance Query () where
     parseQuery _ = Just ()
 
 instance Query a => Query (Maybe a) where
-    parseQuery xs = Just <$> parseQuery xs
+    parseQuery = Just . parseQuery
 
 instance (Query a, Query b) => Query (a, b) where
   parseQuery q = do

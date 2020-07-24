@@ -76,4 +76,5 @@ main = do
     log Info $ "Updating keys"
     updateSecrets secrets
   run (port config) (app (backdoor config) secrets (log, db))
+  log Info $ "Stopping"
   killThread upd_thread

@@ -28,6 +28,7 @@ library
       App
       Auth
       Authors
+      Categories
       Entities
       Entry
       Lib

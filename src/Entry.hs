@@ -5,6 +5,7 @@
 module Entry (app) where
 
 import           Authors
+import           Categories
 import           App
 import           Auth
 import           Misc
@@ -28,6 +29,7 @@ import qualified Data.Aeson.Types              as J
 import           Data.Text(Text)
 import           Logger
 import           Tags
+import           Users
 
 app :: Bool -> Secrets -> (Logger, Connection) -> Application
 app backdoorOn secrets env@(log, _) req respond = do
@@ -46,46 +48,63 @@ app backdoorOn secrets env@(log, _) req respond = do
     ["create_tag"   ] -> admin create_tag
     ["edit_tag"     ] -> admin edit_tag
     ["delete_tag"   ] -> admin delete_tag
+
+    ["get_categories" ] -> public get_categories
+    ["create_category"] -> admin create_category
+    ["edit_category"  ] -> admin edit_category
+    ["delete_category"] -> admin delete_category
+
+    ["get_users"]   -> public get_users
+    ["create_user"] -> admin create_user
+    ["delete_user"] -> admin delete_user
+
     _               -> respond $ err status400
  where
-  admin
+  admin, author, user
     :: Query arg
-    => (UserName -> arg -> (Logger, Connection) -> IO AppResponse)
+    => (UserName -> arg -> Endpoint)
     -> IO ResponseReceived
-  admin = public . needToken (Just "admin")
-  --author = public . needToken (Just "author")
+  admin  = needToken (Just "admin")
+  author = needToken (Just "author")
+  user   = needToken Nothing
+
   needToken
     :: Query arg
     => Maybe Text
-    -> (UserName -> arg -> (Logger, Connection) -> IO AppResponse)
-    -> (Token, arg, Maybe BackdooredUser)
-    -> (Logger, Connection)
-    -> IO AppResponse
-  needToken claim f (Token token, arg, backdoorUser) _ = if backdoorOn
-    then f (UserName $ maybe "admin" unBackdooredUser backdoorUser) arg env
-    else do
+    -> (UserName -> arg -> Endpoint)
+    -> IO ResponseReceived
+  needToken claim f = respond =<< toHttp <$> case parseQuery (queryString req) of
+    Just (Just (Token token), arg) -> do
       jwt <- verifyJWT claim token <$> runJWT secrets
       case jwt of
         JWTOk username -> f username arg env
         JWTExp         -> return TokenExpired
-        JWTReject      -> return AccessDenied
+        JWTReject      -> return NotFound
+    Just (Nothing, arg) -> if backdoorOn then f (UserName "admin") arg env else return NotFound
+    Nothing -> return NotFound
 
-  public :: Query q => (q -> (Logger, Connection) -> IO AppResponse) -> IO ResponseReceived
-  public f = respond =<< case parseQuery (queryString req) of
-    Just q -> f q env <&> \res -> case res of
-      AppOk txt     -> ok txt
-      BadRequest    -> err status400
-      InternalError -> err status500
-      AccessDenied  -> err status400 -- hiding unauthorized apis as 400
-      TokenExpired ->
-        err $ Status { statusCode = 700, statusMessage = "Token expired" }
-    Nothing -> return $ err status400
+  public :: Query q => (q -> Endpoint) -> IO ResponseReceived
+  public f = respond =<< toHttp <$> case parseQuery (queryString req) of
+    Just q -> f q env
+    Nothing -> return BadRequest
+
+  toHttp res = case res of
+    AppOk res     -> ok res
+    BadRequest    -> err status400
+    InternalError -> err status500
+    AccessDenied  -> err status401
+    NotFound      -> err status404
+    TokenExpired  ->
+      err $ Status { statusCode = 700, statusMessage = "Token expired" }
+
   json status x =
     responseLBS status [("Content-Type", "application/json")]
       . J.encode
       . J.object
       $ x
+
   ok x = json status200 $ ["ok" .= True, "response" .= x]
+
   err status =
     json status
       $ [ "ok" .= False
