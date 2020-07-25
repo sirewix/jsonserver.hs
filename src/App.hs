@@ -29,3 +29,4 @@ defaultDbHandlers log =
 catchDb log ret = flip catches (Handler (\(e :: QueryError) -> ret) : defaultDbHandlers log)
 
 type Endpoint = (Logger, Connection) -> IO AppResponse
+

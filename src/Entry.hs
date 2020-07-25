@@ -6,6 +6,7 @@ module Entry (app) where
 
 import           Authors
 import           Categories
+import           Posts
 import           App
 import           Auth
 import           Misc
@@ -54,9 +55,17 @@ app backdoorOn secrets env@(log, _) req respond = do
     ["edit_category"  ] -> admin edit_category
     ["delete_category"] -> admin delete_category
 
-    ["get_users"]   -> public get_users
+    ["get_users"  ]   -> public get_users
     ["create_user"] -> admin create_user
     ["delete_user"] -> admin delete_user
+
+    ["create_post" ] -> author create_post
+    ["edit_post"   ] -> author edit_post
+    ["publish_post"] -> author publish_post
+    ["delete_post" ] -> author delete_post
+
+    ["attach_tag"  ] -> author attach_tag
+    ["deattach_tag"] -> author deattach_tag
 
     _               -> respond $ err status400
  where

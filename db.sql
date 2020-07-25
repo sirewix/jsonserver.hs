@@ -21,7 +21,9 @@ CREATE TABLE authors (
 );
 
 INSERT INTO users (name, lastname, admin, avatar, registrationDate, password)
-     VALUES ('admin', 'Juohanpeohanovitch', true, '/admin.png', current_timestamp, '123');
+    VALUES ('admin', 'Juohanpeohanovitch', true, '/admin.png', current_timestamp, '123');
+
+INSERT INTO authors (username, description) VALUES ('admin', 'godfather');
 
 CREATE TABLE categories (
     id        serial PRIMARY KEY
@@ -39,6 +41,8 @@ INSERT INTO categories (name, parent_id) VALUES
 
 CREATE TABLE tags (
     tag varchar (20) PRIMARY KEY
+                     ON DELETE CASCADE
+                     ON UPDATE CASCADE
 );
 
 INSERT INTO tags VALUES ('tag1');
@@ -54,7 +58,7 @@ CREATE TABLE posts (
   , content   text
   , mainImage varchar (20)
   , images    varchar (20) []
-  , draft     bool
+  , published bool
 );
 
 CREATE TABLE tag_post_relations (

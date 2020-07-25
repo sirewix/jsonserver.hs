@@ -17,6 +17,9 @@ import           Query
 import           Data.Maybe
 import           Database.PostgreSQL.Simple.ToField
 import           Database.PostgreSQL.Simple.Time
+import           Database.PostgreSQL.Simple.FromRow
+import           Database.PostgreSQL.Simple.Types (PGArray(..))
+import           Data.Time.Calendar
 import           Data.Time.Calendar
 
 newtype UserName = UserName Text
@@ -71,7 +74,7 @@ instance ToField CategoryId where
     toField (CategoryId cid) = toField cid
 
 instance Query CategoryId where
-  parseQuery q = CategoryId <$> (fmap fst . listToMaybe . reads . unpack =<< "cid" .: q)
+  parseQuery q = CategoryId <$> (readT =<< "cid" .: q)
 
 newtype Name = Name Text
 instance Query Name where
@@ -87,26 +90,80 @@ data User = User
 
 instance ToJSON Date where
     toJSON (Finite d) = J.String $ pack $ showGregorian d
+    toJSON _ = J.Null
+
+{-
+data Post = Post
+  { _id       :: Int
+  , title     :: Text
+  , date      :: Date
+  , author    :: Author
+  , category  :: [Category]
+  , tags      :: [Tag]
+  , content   :: Text
+  , mainImage :: Text
+  , images    :: [Text]
+  , published :: Bool
+  } deriving (Generic, ToJSON)
+
+instance FromRow Post where
+  fromRow = Post
+    <$> field
+    <*> field
+    <*> field
+    <*> field
+    <*> (field )
+    -}
+
+--(Title title, CategoryId cid, Text content, Image img, Images images)
+
+readT :: Read a => Text -> Maybe a
+readT = fmap fst . listToMaybe . reads . unpack
+
+newtype Title = Title Text
+instance Query Title where
+  parseQuery q = Title <$> "title" .: q
+instance ToField Title where
+    toField (Title imgs) = toField imgs
+
+newtype Content = Content Text
+instance Query Content where
+  parseQuery q = Content <$> "text" .: q
+instance ToField Content where
+    toField (Content imgs) = toField imgs
+
+newtype Image = Image Text
+instance Query Image where
+  parseQuery q = Image <$> "image" .: q
+instance ToField Image where
+    toField (Image imgs) = toField imgs
+
+newtype Images = Images [Text]
+instance Query Images where
+  parseQuery q = Images <$> (readT =<< "images" .: q)
+  --parseQuery q = CategoryId <$> ( =<< "cid" .: q)
+
+newtype PostId = PostId Int
+instance Query PostId where
+  parseQuery q = PostId <$> (readT =<< "pid" .: q)
+
+instance ToField Images where
+    toField (Images imgs) = toField $ PGArray imgs
 
     {-
-data Category =
-    Category Text
-  | SubCategory Category Text
-
 type Image = ()
 
-data Post = Post
-    { _id       :: Int
-    , title     :: Text
-    , date      :: Date
-    , author    :: Author
-    , category  :: Category
-    , tags      :: [Tag]
-    , content   :: Text
-    , mainImage :: Image
-    , images    :: [Image]
-    }
-
+{- CREATE TABLE posts (
+    id        serial PRIMARY KEY
+  , title     varchar (50)
+  , date      date
+  , author    int REFERENCES authors
+  , category  int REFERENCES categories
+  , content   text
+  , mainImage varchar (20)
+  , images    varchar (20) []
+  , draft     bool
+); -}
 newtype PostDraft = PostDraft (Post)
 
 {-
