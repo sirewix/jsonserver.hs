@@ -20,7 +20,7 @@ import           Logger
 
 get_authors (UserName admin) () (log, db) =
   catchDb log (return InternalError) $ do
-    q <- query db "SELECT username, description FROM authors" () :: IO [Author]
+    q <- query db "SELECT id, username, description FROM authors" () :: IO [Author]
     return . AppOk $ J.toJSON q
 
 make_author (UserName admin) (UserName name, Description description) (log, db) =

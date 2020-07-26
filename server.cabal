@@ -34,8 +34,11 @@ library
       Lib
       Logger
       Misc
+      Posts
       Query
+      Search
       Tags
+      Users
   other-modules:
       Paths_server
   hs-source-dirs:

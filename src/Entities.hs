@@ -5,6 +5,7 @@
 , DeriveGeneric
 , TypeSynonymInstances
 , FlexibleInstances
+, TypeOperators
 #-}
 module Entities where
 import qualified Data.Aeson as J
@@ -44,14 +45,10 @@ instance Query Token where
   parseQuery q = Token <$> "token" .: q
 
 data Author = Author
-  { username    :: Text
+  { _id         :: Int
+  , username    :: Text
   , description :: Text
   } deriving (Generic, FromRow, ToJSON)
-
-instance Query Author where
-  parseQuery q = Author
-    <$> ("username" .: q)
-    <*> ("description" .: q)
 
 newtype Tag = Tag Text
     deriving (Generic, FromRow, ToJSON)
@@ -92,30 +89,37 @@ instance ToJSON Date where
     toJSON (Finite d) = J.String $ pack $ showGregorian d
     toJSON _ = J.Null
 
-{-
 data Post = Post
   { _id       :: Int
   , title     :: Text
   , date      :: Date
   , author    :: Author
-  , category  :: [Category]
-  , tags      :: [Tag]
+  , category  :: [Int :. Text]
+  , tags      :: [Text]
   , content   :: Text
   , mainImage :: Text
   , images    :: [Text]
   , published :: Bool
-  } deriving (Generic, ToJSON)
+  } deriving (Generic)
 
+{-
 instance FromRow Post where
   fromRow = Post
     <$> field
     <*> field
     <*> field
+    <*> ( Author
+            <$> field
+            <*> field
+            <*> field
+        )
+    <*> (fromPGArray <$> field)
+    <*> (fromPGArray <$> field)
     <*> field
-    <*> (field )
-    -}
-
---(Title title, CategoryId cid, Text content, Image img, Images images)
+    <*> field
+    <*> (fromPGArray <$> field)
+    <*> field
+-}
 
 readT :: Read a => Text -> Maybe a
 readT = fmap fst . listToMaybe . reads . unpack
@@ -149,27 +153,3 @@ instance Query PostId where
 
 instance ToField Images where
     toField (Images imgs) = toField $ PGArray imgs
-
-    {-
-type Image = ()
-
-{- CREATE TABLE posts (
-    id        serial PRIMARY KEY
-  , title     varchar (50)
-  , date      date
-  , author    int REFERENCES authors
-  , category  int REFERENCES categories
-  , content   text
-  , mainImage varchar (20)
-  , images    varchar (20) []
-  , draft     bool
-); -}
-newtype PostDraft = PostDraft (Post)
-
-{-
-Черновики
-    Новость должна иметь возможность иметь черновики — то есть мы должны иметь возможность вносить изменения, но не опубликовать их.
-    По АПИ отдаем только опубликованные новости.
-    Только автор может видеть черновик к новости и изменять его.
--}
--}

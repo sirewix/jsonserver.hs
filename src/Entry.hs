@@ -31,43 +31,47 @@ import           Data.Text(Text)
 import           Logger
 import           Tags
 import           Users
+import           Search
+import           Data.ByteString.Lazy
 
 app :: Bool -> Secrets -> (Logger, Connection) -> Application
 app backdoorOn secrets env@(log, _) req respond = do
   log Debug $ showText req
   case pathInfo req of
-    -- ["posts"   ] -> posts req respond
-    ["register"     ] -> public register
+    ["register"       ] -> public register
     ["login"] -> public (login $ \arg -> generateJWT arg <$> runJWT secrets)
 
-    ["make_author"  ] -> admin make_author
-    ["get_authors"  ] -> admin get_authors
-    ["edit_author"  ] -> admin edit_author
-    ["delete_author"] -> admin delete_author
+    ["make_author"    ] -> admin make_author
+    ["get_authors"    ] -> admin get_authors
+    ["edit_author"    ] -> admin edit_author
+    ["delete_author"  ] -> admin delete_author
 
-    ["get_tags"     ] -> public get_tags
-    ["create_tag"   ] -> admin create_tag
-    ["edit_tag"     ] -> admin edit_tag
-    ["delete_tag"   ] -> admin delete_tag
+    ["get_tags"       ] -> public get_tags
+    ["create_tag"     ] -> admin create_tag
+    ["edit_tag"       ] -> admin edit_tag
+    ["delete_tag"     ] -> admin delete_tag
 
     ["get_categories" ] -> public get_categories
     ["create_category"] -> admin create_category
     ["edit_category"  ] -> admin edit_category
     ["delete_category"] -> admin delete_category
 
-    ["get_users"  ]   -> public get_users
-    ["create_user"] -> admin create_user
-    ["delete_user"] -> admin delete_user
+    ["get_users"      ] -> public get_users
+    ["create_user"    ] -> admin create_user
+    ["delete_user"    ] -> admin delete_user
 
-    ["create_post" ] -> author create_post
-    ["edit_post"   ] -> author edit_post
-    ["publish_post"] -> author publish_post
-    ["delete_post" ] -> author delete_post
+    ["get_post"       ] -> author get_post
+    ["create_post"    ] -> author create_post
+    ["edit_post"      ] -> author edit_post
+    ["publish_post"   ] -> author publish_post
+    ["delete_post"    ] -> author delete_post
 
-    ["attach_tag"  ] -> author attach_tag
-    ["deattach_tag"] -> author deattach_tag
+    ["attach_tag"     ] -> author attach_tag
+    ["deattach_tag"   ] -> author deattach_tag
 
-    _               -> respond $ err status400
+    ["posts"          ] -> public posts
+
+    _                   -> respond $ toHttp NotFound
  where
   admin, author, user
     :: Query arg
@@ -121,5 +125,3 @@ app backdoorOn secrets env@(log, _) req respond = do
         , "error" .= (decodeUtf8 $ statusMessage status)
         ]
 
-posts :: Application
-posts req respond = undefined
