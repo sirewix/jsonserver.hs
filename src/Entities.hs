@@ -21,7 +21,6 @@ import           Database.PostgreSQL.Simple.Time
 import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.Types (PGArray(..))
 import           Data.Time.Calendar
-import           Data.Time.Calendar
 
 newtype UserName = UserName Text
 newtype LastName = LastName Text
@@ -50,11 +49,11 @@ data Author = Author
   , description :: Text
   } deriving (Generic, FromRow, ToJSON)
 
-newtype Tag = Tag Text
+newtype Tag = Tag Int
     deriving (Generic, FromRow, ToJSON)
 
 instance Query Tag where
-  parseQuery q = Tag <$> "tag" .: q
+  parseQuery q = Tag <$> (readT =<< "tag" .: q)
 
 data Category = Category Int Text
     deriving (Generic, FromRow)
@@ -65,7 +64,6 @@ instance ToJSON Category where
         , "name" .= name ]
 
 newtype CategoryId = CategoryId Int
-    --deriving (Generic, ToField)
 
 instance ToField CategoryId where
     toField (CategoryId cid) = toField cid
@@ -89,6 +87,11 @@ instance ToJSON Date where
     toJSON (Finite d) = J.String $ pack $ showGregorian d
     toJSON _ = J.Null
 
+newtype AuthorName = AuthorName Text
+instance Query AuthorName where
+  parseQuery q = AuthorName <$> "author_name" .: q
+
+{-
 data Post = Post
   { _id       :: Int
   , title     :: Text
@@ -102,7 +105,6 @@ data Post = Post
   , published :: Bool
   } deriving (Generic)
 
-{-
 instance FromRow Post where
   fromRow = Post
     <$> field

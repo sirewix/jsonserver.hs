@@ -61,6 +61,7 @@ app backdoorOn secrets env@(log, _) req respond = do
     ["delete_user"    ] -> admin delete_user
 
     ["get_post"       ] -> author get_post
+    ["get_posts"      ] -> author get_posts
     ["create_post"    ] -> author create_post
     ["edit_post"      ] -> author edit_post
     ["publish_post"   ] -> author publish_post
@@ -69,6 +70,7 @@ app backdoorOn secrets env@(log, _) req respond = do
     ["attach_tag"     ] -> author attach_tag
     ["deattach_tag"   ] -> author deattach_tag
 
+    ["post"           ] -> public post
     ["posts"          ] -> public posts
 
     _                   -> respond $ toHttp NotFound
