@@ -75,6 +75,9 @@ app backdoorOn secrets env@(log, _) req respond = do
     ["post", pid, "comments"] -> path public pid (get_comments . PostId)
     ["posts"          ] -> public posts
 
+    ["add_comment"    ] -> user add_comment
+    ["delete_comment" ] -> user delete_comment
+
     _                   -> respond $ toHttp NotFound
  where
   admin, author, user

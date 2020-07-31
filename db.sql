@@ -51,9 +51,10 @@ CREATE TABLE tag_post_relations (
 );
 
 CREATE TABLE comments (
-    post     int         REFERENCES posts ON DELETE CASCADE
+    id       serial      PRIMARY KEY
+  , post     int         REFERENCES posts ON DELETE CASCADE
   , username varchar(20) REFERENCES users ON DELETE CASCADE
-  , comment  text NOT NULL
+  , comment  text        NOT NULL
 );
 
 DROP FUNCTION IF EXISTS category_root;
