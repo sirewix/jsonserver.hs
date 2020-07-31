@@ -1,6 +1,6 @@
 {-# LANGUAGE
   OverloadedStrings
-, ScopedTypeVariables
+, QuasiQuotes
 #-}
 module Authors
     ( make_author
@@ -17,11 +17,21 @@ import           Data.String (fromString)
 import qualified Data.Aeson                    as J
 import           Control.Exception
 import           Logger
+import           Database.PostgreSQL.Simple.SqlQQ
 
-get_authors (UserName admin) () (log, db) =
+authorsPageSize = 20
+
+get_authors (UserName admin) (Page page) (log, db) =
   catchDb log (return InternalError) $ do
-    q <- query db "SELECT id, username, description FROM authors" () :: IO [Author]
-    return . AppOk $ J.toJSON q
+    q <- query db [sql|
+        SELECT
+            count(*) OVER(),
+            to_json (authors)
+        FROM authors
+        LIMIT ?
+        OFFSET ?
+      |] (limit authorsPageSize, offset authorsPageSize page) :: IO [(Int, J.Value)]
+    return $ paginate authorsPageSize q
 
 make_author (UserName admin) (UserName name, Description description) (log, db) =
   catchDb log (return BadRequest) $ do

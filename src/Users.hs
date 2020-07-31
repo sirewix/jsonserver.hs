@@ -1,4 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE
+  OverloadedStrings
+, QuasiQuotes
+#-}
 
 module Users where
 import           App
@@ -14,13 +17,29 @@ import           Logger
 import           Query
 import           Auth
 import qualified Data.Aeson                    as J
+import           Database.PostgreSQL.Simple.SqlQQ
 
-get_users () (log, db) =
+usersPageSize = 20
+
+get_users (Page page) (log, db) =
   catchDb log (return BadRequest) $ do
-    q <- query db "SELECT name, lastName, admin, avatar, registrationDate FROM users" () :: IO [User]
-    return . AppOk $ J.toJSON q
+    q <- query db [sql|
+        SELECT
+            count(*) OVER(),
+            json_build_object (
+                'name', name,
+                'last_name', lastName,
+                'admin', admin,
+                'avatar', avatar,
+                'registration_date', registrationDate
+            )
+        FROM users
+        LIMIT ?
+        OFFSET ?
+      |] (limit usersPageSize, offset usersPageSize page) :: IO [(Int, J.Value)]
+    return $ paginate usersPageSize q
 
-create_user (UserName admin) = register
+create_user (UserName admin) = register -- eew
 
 delete_user (UserName admin) (UserName user) (log, db) =
   catchDb log (return BadRequest) $ do

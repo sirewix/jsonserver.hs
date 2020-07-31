@@ -159,3 +159,7 @@ instance Query PostId where
 
 instance ToField Images where
     toField (Images imgs) = toField $ PGArray imgs
+
+newtype Page = Page Int
+instance Query Page where
+  parseQuery q = Page <$> maybe (Just 1) readT ("page" .: q)

@@ -5,15 +5,20 @@ module App
     , defaultDbHandlers
     , catchDb
     , Endpoint
+    , paginate
+    , limit
+    , offset
     ) where
 
-import           Misc
 import           Control.Exception
-import           Database.PostgreSQL.Simple hiding ( Query )
-import           Logger
-import qualified Data.Aeson                    as J
+import           Data.Aeson ((.=))
 import           Data.Text                      ( pack )
 import           Data.Text.Encoding
+import           Data.Yaml (array)
+import           Database.PostgreSQL.Simple hiding ( Query )
+import           Logger
+import           Misc
+import qualified Data.Aeson                    as J
 
 data AppResponse =
     AppOk J.Value
@@ -44,3 +49,15 @@ showResultError (ConversionFailed sqlType _ _ hType msg) =
 catchDb log ret = flip catches (Handler (\(e :: QueryError) -> ret) : defaultDbHandlers log)
 
 type Endpoint = (Logger, Connection) -> IO AppResponse
+
+paginate :: Int -> [(Int, J.Value)] -> AppResponse
+paginate pageSize q = if null q
+  then BadRequest
+  else AppOk $ J.object
+    [ "pages" .= ((fst (head q) + pageSize - 1) `quot` pageSize)
+    , "content" .= array (map snd q) ]
+
+limit :: Int -> String
+limit pageSize = show pageSize
+offset :: Int -> Int -> String
+offset pageSize page = show ((page - 1) * pageSize)

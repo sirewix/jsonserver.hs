@@ -20,7 +20,8 @@ INSERT INTO posts (title, date, author, category, content, mainImage, images, pu
     ('title0', current_timestamp, 1, 4, 'asdfe',    'img.png', array['hi', 'by'], true),
     ('title1', current_timestamp, 1, 2, 'nubvryu',  'img.png', array['hi'],       true),
     ('title2', current_timestamp, 2, 4, 'ovnet',    'img.png', array[]::text[],   true),
-    ('title3', current_timestamp, 2, 2, 'weroihzb', 'img.png', array[]::text[],   true);
+    ('title3', current_timestamp, 2, 2, 'weroihzb', 'img.png', array[]::text[],   true),
+    ('title4', current_timestamp, 2, 2, 'lkmug',    'img.png', array[]::text[],   true);
 
 INSERT INTO tag_post_relations (tag, post) VALUES
     (1, 1),

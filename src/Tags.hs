@@ -1,4 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE
+  OverloadedStrings
+, QuasiQuotes
+#-}
 
 module Tags where
 
@@ -16,11 +19,19 @@ import           Misc
 import qualified Data.Aeson                    as J
 import           Data.Aeson                     ( (.=) )
 import           Data.Yaml (array)
+import           Database.PostgreSQL.Simple.SqlQQ
 
-get_tags () (log, db) =
+tagsPageSize = 50;
+
+get_tags (Page page) (log, db) =
   catchDb log (return InternalError) $ do
-    q <- query db "SELECT id, tag FROM tags" () :: IO [(Integer, Text)]
-    return . AppOk $ J.toJSON $ array $ map (\(id, tag) -> J.object ["id" .= id, "tag" .= tag]) q
+    q <- query db [sql|
+            SELECT
+                count(*) OVER(),
+                to_json(tags)
+            FROM tags LIMIT ? OFFSET ?
+        |] (limit tagsPageSize, offset tagsPageSize page) :: IO [(Int, J.Value)]
+    return $ paginate tagsPageSize q
 
 create_tag (UserName admin) (Name tag) (log, db) =
   catchDb log (return BadRequest) $ do

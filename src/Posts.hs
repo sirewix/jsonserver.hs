@@ -17,7 +17,8 @@ import           Database.PostgreSQL.Simple.SqlQQ
 import           Entities
 import           Logger
 import qualified Data.Aeson                    as J
-import           Data.Yaml (array)
+
+postsPageSize = 20
 
 get_post (UserName author) (PostId pid) (log, db) =
   catchDb log (return BadRequest) $ do
@@ -26,18 +27,23 @@ get_post (UserName author) (PostId pid) (log, db) =
       |] (pid, author) :: IO [Only J.Value]
     return . AppOk $ p
 
-get_posts (UserName author) () (log, db) =
+get_posts (UserName author) (Page page) (log, db) =
   catchDb log (return InternalError) $ do
-    posts <- query db ([sql|
-        SELECT json FROM posts_view WHERE authorname = ?
-      |]) [author] :: IO [Only J.Value]
-    return . AppOk . array $ map fromOnly posts
+    q <- query db [sql|
+        SELECT count(*) OVER(), json
+            FROM posts_view
+            WHERE authorname = ?
+            LIMIT ?
+            OFFSET ?
+      |] (author, limit postsPageSize, offset postsPageSize page) :: IO [(Int, J.Value)]
+    return $ paginate postsPageSize q
 
 create_post (UserName author) (Title title, CategoryId cid, Content content, Image img, Images images) (log, db) =
   catchDb log (return BadRequest) $ do
     [Only pid] <- query db [sql|
         INSERT INTO posts (title, date, author, category, content, mainImage, images, published)
-        VALUES (?, current_timestamp, (SELECT id FROM authors WHERE username = ?), ?, ?, ?, ?, false) RETURNING id
+        VALUES (?, current_timestamp, (SELECT id FROM authors WHERE username = ?), ?, ?, ?, ?, false) RETURNING id;
+        REFRESH MATERIALIZED VIEW posts_view;
       |] (title, author, cid, content, img, Images images)
     log Info $ author <> " created post '" <> title <> "'"
     return . AppOk $ J.Number $ fromInteger pid
@@ -46,7 +52,8 @@ attach_tag (UserName author) (PostId pid, Tag tag) (log, db) =
   catchDb log (return BadRequest) $ do
     dbres <- execute db [sql|
         INSERT INTO tag_post_relations (tag, post)
-        (SELECT (?), id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
+        (SELECT (?), id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?));
+        REFRESH MATERIALIZED VIEW posts_view;
      |] (tag, pid, author)
     if dbres == 1
       then return $ AppOk J.Null
@@ -56,7 +63,8 @@ deattach_tag (UserName author) (PostId pid, Tag tag) (log, db) =
   catchDb log (return BadRequest) $ do
     dbres <- execute db [sql|
         DELETE FROM tag_post_relations WHERE tag = ? AND post =
-        (SELECT id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
+        (SELECT id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?));
+        REFRESH MATERIALIZED VIEW posts_view;
      |] (tag, pid, author)
     if dbres == 1
       then return $ AppOk J.Null
@@ -73,7 +81,8 @@ edit_post (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, 
         mainImage = COALESCE (?, mainImage),
         images = COALESCE (?, images),
         date = current_timestamp
-        WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
+        WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?);
+        REFRESH MATERIALIZED VIEW posts_view;
      |] (mbtitle, mbcategory, mbcontent, mbimg, mbimgs, pid, author)
     if dbres == 1
       then do
@@ -86,7 +95,8 @@ publish_post (UserName author) (PostId pid) (log, db) =
     dbres <- execute db [sql|
         UPDATE posts
         SET published = true
-        WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
+        WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?);
+        REFRESH MATERIALIZED VIEW posts_view;
      |] (pid, author)
     if dbres == 1
       then do
@@ -98,7 +108,8 @@ delete_post (UserName author) (PostId pid) (log, db) =
   catchDb log (return BadRequest) $ do
     dbres <- execute db [sql|
         DELETE FROM posts
-        WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
+        WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?);
+        REFRESH MATERIALIZED VIEW posts_view;
      |] (pid, author)
     if dbres == 1
       then do

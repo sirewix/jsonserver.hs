@@ -20,12 +20,15 @@ import           Entities
 import           Logger
 import qualified Data.Aeson                    as J
 import           Data.Yaml (array)
+import           Data.Aeson ((.=))
 import           Database.PostgreSQL.Simple.Time
 import           Control.Applicative
 import           Data.Maybe
 import           Data.ByteString(ByteString, intercalate)
 import qualified Data.ByteString.Char8         as B
 import           Database.PostgreSQL.Simple.Types (PGArray(..))
+
+searchPageSize = 20;
 
 posts :: ( Maybe Sort
          , TagsInAll
@@ -35,19 +38,24 @@ posts :: ( Maybe Sort
          , Maybe Title
          , Maybe Content
          , Maybe Search
+         , Page
          ) -> Endpoint
 
-posts (mbSort, TagsInAll tags_in tags_all, createdAt, mbAuthor, mbcid, mbtitle, mbcontent, mbsearch) (log, db)
+posts (mbSort, TagsInAll tags_in tags_all, createdAt, mbAuthor, mbcid, mbtitle, mbcontent, mbsearch, Page page) (log, db)
   = catchDb log (return InternalError) $ do
     conditions <- sequence conditions
     searchCond <- sequence searchCond
-    let q = P.Query $ "SELECT json FROM posts_view " <> P.fromQuery mbjoin <> " WHERE "
+    let q = P.Query $
+               "SELECT count(*) OVER(), json FROM posts_view "
+            <> P.fromQuery mbjoin
+            <> " WHERE "
             <> intercalate " AND " ("published = true" : conditions)
-            <> " AND "
-            <> intercalate " OR " searchCond
+            <> " AND ("
+            <> (null searchCond ? "true" $ intercalate " OR " searchCond)
+            <> ") LIMIT ? OFFSET ? "
     log Debug $ decodeUtf8 $ P.fromQuery q
-    posts <- query db q () :: IO [Only J.Value]
-    return . AppOk . array $ map fromOnly posts
+    q <- query db q (limit searchPageSize, offset searchPageSize page) :: IO [(Int, J.Value)]
+    return $ paginate searchPageSize q
  where
   conditions =
         (null tags_in  ? [] $ [formatQuery db "tags @> ?" [PGArray tags_in]])
