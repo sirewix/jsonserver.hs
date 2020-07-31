@@ -7,6 +7,7 @@ import           App
 import           Auth
 import           Authors
 import           Categories
+import           Comments
 import           Data.Aeson                     ( (.=) )
 import           Data.ByteString.Lazy
 import           Data.Functor
@@ -69,7 +70,9 @@ app backdoorOn secrets env@(log, _) req respond = do
     ["attach_tag"     ] -> author attach_tag
     ["deattach_tag"   ] -> author deattach_tag
 
-    ["post"           ] -> public post
+    ["post"           ] -> respond $ toHttp BadRequest
+    ["post", pid      ] -> path public pid (post . PostId)
+    ["post", pid, "comments"] -> path public pid (get_comments . PostId)
     ["posts"          ] -> public posts
 
     _                   -> respond $ toHttp NotFound
@@ -96,6 +99,8 @@ app backdoorOn secrets env@(log, _) req respond = do
         JWTReject      -> return NotFound
     Just (Nothing, arg) -> if backdoorOn then f (UserName "admin") arg env else return NotFound
     Nothing -> return NotFound
+
+  path which x f = maybe (respond $ toHttp BadRequest) (which . f) (readT x)
 
   public :: Query q => (q -> Endpoint) -> IO ResponseReceived
   public f = respond =<< toHttp <$> case parseQuery (queryString req) of

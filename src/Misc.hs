@@ -1,5 +1,6 @@
 module Misc where
-import           Data.Text(Text,pack)
+import           Data.Text                      ( Text, pack, unpack)
+import           Data.Maybe
 
 showText :: Show a => a -> Text
 showText = pack . show

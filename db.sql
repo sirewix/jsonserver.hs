@@ -4,6 +4,7 @@ DROP TABLE IF EXISTS categories         CASCADE;
 DROP TABLE IF EXISTS users              CASCADE;
 DROP TABLE IF EXISTS authors            CASCADE;
 DROP TABLE IF EXISTS tag_post_relations CASCADE;
+DROP TABLE IF EXISTS comments           CASCADE;
 
 CREATE TABLE users (
     name             varchar (20)  PRIMARY KEY
@@ -47,6 +48,12 @@ CREATE TABLE posts (
 CREATE TABLE tag_post_relations (
     tag  int REFERENCES tags ON DELETE CASCADE
   , post int REFERENCES posts ON DELETE CASCADE
+);
+
+CREATE TABLE comments (
+    post     int         REFERENCES posts ON DELETE CASCADE
+  , username varchar(20) REFERENCES users ON DELETE CASCADE
+  , comment  text NOT NULL
 );
 
 DROP FUNCTION IF EXISTS category_root;

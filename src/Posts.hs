@@ -20,6 +20,11 @@ import qualified Data.Aeson                    as J
 
 postsPageSize = 20
 
+post (PostId pid) () (log, db) =
+  catchDb log (return BadRequest) $ do
+    [Only post] <- query db "SELECT json FROM posts_view WHERE id = ? AND published = true" [pid]
+    return . AppOk $ post
+
 get_post (UserName author) (PostId pid) (log, db) =
   catchDb log (return BadRequest) $ do
     [Only p] <- query db [sql|

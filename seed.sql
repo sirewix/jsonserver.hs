@@ -31,5 +31,19 @@ INSERT INTO tag_post_relations (tag, post) VALUES
     (2, 1),
     (3, 1);
 
+INSERT INTO comments (post, username, comment) VALUES
+    (1, 'pupa', 'haha'),
+    (1, 'lupa', 'hehe'),
+    (1, 'admin', 'hihi'),
+    (2, 'pupa', 'hoho'),
+    (2, 'lupa', 'heh'),
+    (3, 'pupa', 'hah'),
+    (3, 'admin', 'meh'),
+    (4, 'lupa', 'ooo'),
+    (3, 'pupa', 'eh'),
+    (3, 'lupa', 'wow'),
+    (2, 'pupa', 'ops'),
+    (4, 'lupa', 'beep');
+
 REFRESH MATERIALIZED VIEW posts_view;
 

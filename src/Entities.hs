@@ -9,7 +9,6 @@
 #-}
 module Entities where
 import           Data.Aeson (ToJSON,(.=))
-import           Data.Maybe
 import           Data.Text                      ( Text, pack, unpack)
 import           Data.Text.Encoding
 import           Data.Time.Calendar
@@ -112,6 +111,7 @@ instance Query Images where
   --parseQuery q = CategoryId <$> ( =<< "cid" .: q)
 
 newtype PostId = PostId Int
+
 instance Query PostId where
   parseQuery q = PostId <$> (readT =<< "pid" .: q)
 

@@ -3,7 +3,7 @@
 , QuasiQuotes
 #-}
 
-module Search(posts, post) where
+module Search(posts) where
 import           App
 import           Query
 import           Misc
@@ -81,11 +81,6 @@ posts (mbSort, TagsInAll tags_in tags_all, createdAt, mbAuthor, mbcid, mbtitle, 
         LEFT JOIN tag_post_relations ON post = posts_view.id
         LEFT JOIN tags ON tags.id = tag_post_relations.tag
     |]
-
-post (PostId pid) (log, db) =
-  catchDb log (return BadRequest) $ do
-    [Only post] <- query db "SELECT json FROM posts_view WHERE id = ? AND published = true" [pid]
-    return . AppOk $ post
 
 orderBy mbSort = " ORDER BY " <> case maybe (Sort ByDate True) id mbSort of
     Sort ByDate r           -> "date"           <> sort r
