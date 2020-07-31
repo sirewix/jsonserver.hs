@@ -2,7 +2,7 @@
 
 module Categories where
 import           App
-import           Misc
+import           Data.Aeson                     ( (.=) )
 import           Data.Text                      ( Text )
 import           Data.Text.Encoding
 import           Database.PostgreSQL.Simple     ( query
@@ -11,9 +11,9 @@ import           Database.PostgreSQL.Simple     ( query
                                                 )
 import           Entities
 import           Logger
+import           Misc
 import           Query
 import qualified Data.Aeson                    as J
-import           Data.Aeson                     ( (.=) )
 
 get_categories :: Maybe CategoryId -> Endpoint
 get_categories mbcid (log, db) =

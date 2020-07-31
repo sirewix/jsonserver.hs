@@ -6,20 +6,22 @@
 
 module Main where
 import           Auth
-import           Misc
 import           Control.Concurrent
 import           Control.Monad
 import           Data.Char
 import           Data.Function
+import           Data.Functor
+import           Data.Yaml
 import           Database.PostgreSQL.Simple
 import           Entry
-import           Network.Wai.Handler.Warp       ( Port, run )
-import           System.Environment
-import           Data.Yaml
-import           Data.Functor
-import qualified Data.ByteString as B
 import           Logger
+import           Misc
+import           Network.Wai.Handler.Warp       ( Port
+                                                , run
+                                                )
+import           System.Environment
 import           System.IO
+import qualified Data.ByteString               as B
 
 import GHC.Generics
 

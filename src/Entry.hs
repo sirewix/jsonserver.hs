@@ -3,19 +3,20 @@
 , PartialTypeSignatures
 #-}
 module Entry (app) where
-
-import           Authors
-import           Categories
-import           Posts
 import           App
 import           Auth
-import           Misc
-import           Entities
+import           Authors
+import           Categories
 import           Data.Aeson                     ( (.=) )
+import           Data.ByteString.Lazy
 import           Data.Functor
+import           Data.Text                      ( Text )
 import           Data.Text.Encoding
 import           Database.PostgreSQL.Simple
                                          hiding ( Query )
+import           Entities
+import           Logger
+import           Misc
 import           Network.HTTP.Types             ( Status(..)
                                                 , status200
                                                 , status400
@@ -24,15 +25,13 @@ import           Network.HTTP.Types             ( Status(..)
                                                 , status500
                                                 )
 import           Network.Wai
+import           Posts
 import           Query
-import qualified Data.Aeson                    as J
-import qualified Data.Aeson.Types              as J
-import           Data.Text(Text)
-import           Logger
+import           Search
 import           Tags
 import           Users
-import           Search
-import           Data.ByteString.Lazy
+import qualified Data.Aeson                    as J
+import qualified Data.Aeson.Types              as J
 
 app :: Bool -> Secrets -> (Logger, Connection) -> Application
 app backdoorOn secrets env@(log, _) req respond = do

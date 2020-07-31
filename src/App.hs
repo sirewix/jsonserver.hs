@@ -2,12 +2,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module App
     ( AppResponse(..)
-    , defaultDbHandlers
-    , catchDb
     , Endpoint
-    , paginate
+    , catchDb
+    , defaultDbHandlers
     , limit
     , offset
+    , paginate
     ) where
 
 import           Control.Exception
@@ -59,5 +59,6 @@ paginate pageSize q = if null q
 
 limit :: Int -> String
 limit pageSize = show pageSize
+
 offset :: Int -> Int -> String
 offset pageSize page = show ((page - 1) * pageSize)

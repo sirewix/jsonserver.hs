@@ -6,7 +6,6 @@
 module Posts where
 
 import           App
-import           Misc
 import           Data.Text                      ( Text )
 import           Data.Text.Encoding
 import           Database.PostgreSQL.Simple     ( query
@@ -16,6 +15,7 @@ import           Database.PostgreSQL.Simple     ( query
 import           Database.PostgreSQL.Simple.SqlQQ
 import           Entities
 import           Logger
+import           Misc
 import qualified Data.Aeson                    as J
 
 postsPageSize = 20

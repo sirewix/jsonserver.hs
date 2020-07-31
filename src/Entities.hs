@@ -8,19 +8,20 @@
 , TypeOperators
 #-}
 module Entities where
-import qualified Data.Aeson as J
 import           Data.Aeson (ToJSON,(.=))
+import           Data.Maybe
 import           Data.Text                      ( Text, pack, unpack)
 import           Data.Text.Encoding
-import           Database.PostgreSQL.Simple hiding (Query)
-import           GHC.Generics
-import           Query
-import           Data.Maybe
-import           Database.PostgreSQL.Simple.ToField
-import           Database.PostgreSQL.Simple.Time
-import           Database.PostgreSQL.Simple.FromRow
-import           Database.PostgreSQL.Simple.Types (PGArray(..))
 import           Data.Time.Calendar
+import           Database.PostgreSQL.Simple hiding (Query)
+import           Database.PostgreSQL.Simple.FromRow
+import           Database.PostgreSQL.Simple.Time
+import           Database.PostgreSQL.Simple.ToField
+import           Database.PostgreSQL.Simple.Types (PGArray(..))
+import           GHC.Generics
+import           Misc
+import           Query
+import qualified Data.Aeson as J
 
 newtype UserName = UserName Text
 newtype LastName = LastName Text
@@ -75,14 +76,6 @@ newtype Name = Name Text
 instance Query Name where
   parseQuery q = Name <$> "name" .: q
 
-data User = User
-  { name      :: Text
-  , last_name :: Text
-  , admin     :: Bool
-  , avatar    :: Text
-  , reg_date  :: Date
-  } deriving (Generic, FromRow, ToJSON)
-
 instance ToJSON Date where
     toJSON (Finite d) = J.String $ pack $ showGregorian d
     toJSON _ = J.Null
@@ -91,46 +84,11 @@ newtype AuthorName = AuthorName Text
 instance Query AuthorName where
   parseQuery q = AuthorName <$> "author_name" .: q
 
-{-
-data Post = Post
-  { _id       :: Int
-  , title     :: Text
-  , date      :: Date
-  , author    :: Author
-  , category  :: [Int :. Text]
-  , tags      :: [Text]
-  , content   :: Text
-  , mainImage :: Text
-  , images    :: [Text]
-  , published :: Bool
-  } deriving (Generic)
-
-instance FromRow Post where
-  fromRow = Post
-    <$> field
-    <*> field
-    <*> field
-    <*> ( Author
-            <$> field
-            <*> field
-            <*> field
-        )
-    <*> (fromPGArray <$> field)
-    <*> (fromPGArray <$> field)
-    <*> field
-    <*> field
-    <*> (fromPGArray <$> field)
-    <*> field
--}
-
-readT :: Read a => Text -> Maybe a
-readT = fmap fst . listToMaybe . reads . unpack
-
 newtype Title = Title Text
 instance Query Title where
   parseQuery q = Title <$> "title" .: q
 instance ToField Title where
-    toField (Title imgs) = toField imgs
+  toField (Title imgs) = toField imgs
 
 newtype Search = Search Text
 instance Query Search where
@@ -140,13 +98,13 @@ newtype Content = Content Text
 instance Query Content where
   parseQuery q = Content <$> "text" .: q
 instance ToField Content where
-    toField (Content imgs) = toField imgs
+  toField (Content imgs) = toField imgs
 
 newtype Image = Image Text
 instance Query Image where
   parseQuery q = Image <$> "image" .: q
 instance ToField Image where
-    toField (Image imgs) = toField imgs
+  toField (Image imgs) = toField imgs
 
 newtype Images = Images [Text]
 instance Query Images where
@@ -158,7 +116,7 @@ instance Query PostId where
   parseQuery q = PostId <$> (readT =<< "pid" .: q)
 
 instance ToField Images where
-    toField (Images imgs) = toField $ PGArray imgs
+  toField (Images imgs) = toField $ PGArray imgs
 
 newtype Page = Page Int
 instance Query Page where

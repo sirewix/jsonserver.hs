@@ -108,11 +108,11 @@ instance Query CreatedAt where
 data TagsInAll = TagsInAll [Int] [Int]
 
 instance Query TagsInAll where
-    parseQuery q = Just $ TagsInAll
-          (maybe [] id $ readT =<< ("tags__in" .: q))
-          (let tags = (maybe [] id $ readT =<< ("tags__all" .: q))
-               mbtag = maybeToList (readT =<< "tag" .: q)
-            in tags ++ mbtag)
+  parseQuery q = Just $ TagsInAll
+    (maybe [] id $ readT =<< ("tags__in" .: q))
+    (let tags  = (maybe [] id $ readT =<< ("tags__all" .: q))
+         mbtag = maybeToList (readT =<< "tag" .: q)
+      in tags ++ mbtag)
 
 data Sort = Sort SortBy Bool
 
