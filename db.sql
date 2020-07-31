@@ -64,10 +64,13 @@ SELECT json_agg(u) FROM (
 $$;
 
 DROP VIEW IF EXISTS posts_view;
-CREATE VIEW posts_view AS
+CREATE MATERIALIZED VIEW posts_view AS
     SELECT
+        posts.id,
         published,
         posts.date,
+        posts.title,
+        posts.content,
         authors.username AS authorname,
         categories.name AS categoryname,
         categories.id AS categoryid,

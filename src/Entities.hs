@@ -132,6 +132,10 @@ instance Query Title where
 instance ToField Title where
     toField (Title imgs) = toField imgs
 
+newtype Search = Search Text
+instance Query Search where
+  parseQuery q = Search <$> "search" .: q
+
 newtype Content = Content Text
 instance Query Content where
   parseQuery q = Content <$> "text" .: q

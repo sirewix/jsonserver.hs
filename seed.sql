@@ -29,3 +29,6 @@ INSERT INTO tag_post_relations (tag, post) VALUES
     (1, 4),
     (2, 1),
     (3, 1);
+
+REFRESH MATERIALIZED VIEW posts_view;
+
