@@ -25,7 +25,6 @@ CREATE TABLE categories (
     id        serial PRIMARY KEY
   , name      varchar (50)
   , parent_id int NULL REFERENCES categories (id) ON DELETE CASCADE
-    --FOREIGN KEY (manager_id) REFERENCES categories (id) ON DELETE CASCADE
 );
 
 CREATE TABLE tags (

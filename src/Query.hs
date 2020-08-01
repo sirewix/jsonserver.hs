@@ -1,6 +1,4 @@
-{-# LANGUAGE
-  OverloadedStrings
-#-}
+{-# LANGUAGE OverloadedStrings #-}
 module Query
   ( Query(..)
   , (.:)
@@ -21,13 +19,13 @@ q .: xs = decodeUtf8 <$> (join $ lookup q xs)
 q .:? xs = fmap decodeUtf8 <$> lookup q xs
 
 class Query a where
-    parseQuery :: QueryParser a
+  parseQuery :: QueryParser a
 
 instance Query () where
-    parseQuery _ = Just ()
+  parseQuery _ = Just ()
 
 instance Query a => Query (Maybe a) where
-    parseQuery = Just . parseQuery
+  parseQuery = Just . parseQuery
 
 instance (Query a, Query b) => Query (a, b) where
   parseQuery q = do

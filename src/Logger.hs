@@ -7,16 +7,17 @@ module Logger
   , Logger
   , sublog
   , newLogger
-  ) where
+  )
+where
 
-import Control.Concurrent
-import Data.Text(Text)
-import Data.Text.IO(hPutStrLn)
-import qualified System.IO as System.IO
-import GHC.Generics
-import Data.Aeson (FromJSON)
-import Data.Time.Clock
-import Misc
+import           Control.Concurrent
+import           Data.Aeson                     ( FromJSON )
+import           Data.Text                      ( Text )
+import           Data.Text.IO                   ( hPutStrLn )
+import           Data.Time.Clock
+import           GHC.Generics
+import           Misc
+import qualified System.IO                     as System.IO
 
 data Priority
     = Debug
@@ -36,6 +37,5 @@ newLogger :: MVar System.IO.Handle -> Priority -> Logger
 newLogger h logPrio = \prio msg -> if prio >= logPrio
   then do
     now <- getCurrentTime
-    withMVar h $ \h ->
-      hPutStrLn h $ showText now <> " [" <> showText prio <> "] " <> msg
+    withMVar h $ \h -> hPutStrLn h $ showText now <> " [" <> showText prio <> "] " <> msg
   else return ()

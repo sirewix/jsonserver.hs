@@ -5,28 +5,32 @@
 
 module Search(posts) where
 import           App
-import           Query
-import           Misc
+import           Control.Applicative
+import           Data.Aeson                     ( (.=) )
+import           Data.ByteString                ( ByteString
+                                                , intercalate
+                                                )
+import           Data.Maybe
 import           Data.Text                      ( Text )
 import           Data.Text.Encoding
-import qualified Database.PostgreSQL.Simple.Types as P
+import           Data.Yaml                      ( array )
 import           Database.PostgreSQL.Simple     ( query
                                                 , execute
                                                 , Only(..)
                                                 , formatQuery
                                                 )
 import           Database.PostgreSQL.Simple.SqlQQ
+import           Database.PostgreSQL.Simple.Time
+import           Database.PostgreSQL.Simple.Types
+                                                ( PGArray(..) )
 import           Entities
 import           Logger
+import           Misc
+import           Query
 import qualified Data.Aeson                    as J
-import           Data.Yaml (array)
-import           Data.Aeson ((.=))
-import           Database.PostgreSQL.Simple.Time
-import           Control.Applicative
-import           Data.Maybe
-import           Data.ByteString(ByteString, intercalate)
 import qualified Data.ByteString.Char8         as B
-import           Database.PostgreSQL.Simple.Types (PGArray(..))
+import qualified Database.PostgreSQL.Simple.Types
+                                               as P
 
 searchPageSize = 20;
 

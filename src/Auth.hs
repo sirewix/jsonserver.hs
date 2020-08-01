@@ -3,16 +3,17 @@
 , ScopedTypeVariables
 #-}
 module Auth
-    ( Secrets
-    , JWTVerification(..)
-    , login
-    , register
-    , generateSecret
-    , updateSecrets
-    , generateJWT
-    , verifyJWT
-    , runJWT
-    ) where
+  ( Secrets
+  , JWTVerification(..)
+  , login
+  , register
+  , generateSecret
+  , updateSecrets
+  , generateJWT
+  , verifyJWT
+  , runJWT
+  )
+where
 
 import           App
 import           Control.Concurrent.MVar
@@ -63,16 +64,13 @@ instance Monad JWTVerification where
 
 
 generateJWT :: (Bool, Bool, Text, Text) -> (NominalDiffTime, [Signer]) -> Text
-generateJWT (admin, author, name, password) (now, (secret:_))  =
+generateJWT (admin, author, name, password) (now, (secret : _)) =
   let header = mempty { alg = Just HS256 }
-      claims = mempty {
-          sub = stringOrURI name
-        , JWT.exp = numericDate (now + 60 * 60)
-        , unregisteredClaims = ClaimsMap $ Map.fromList
-            [ "admin" .= admin
-            , "author" .= author ]
-        }
-   in encodeSigned secret header claims
+      claims = mempty { sub                = stringOrURI name
+                      , JWT.exp            = numericDate (now + 60 * 60)
+                      , unregisteredClaims = ClaimsMap $ Map.fromList ["admin" .= admin, "author" .= author]
+                      }
+  in  encodeSigned secret header claims
 
 runJWT :: Secrets -> IO (NominalDiffTime, [Signer])
 runJWT secrets = do
@@ -80,46 +78,31 @@ runJWT secrets = do
   keys <- readMVar secrets
   return (now, keys)
 
-verifyJWT
-  :: Maybe Text
-  -> Text
-  -> (NominalDiffTime, [Signer])
-  -> JWTVerification UserName
+verifyJWT :: Maybe Text -> Text -> (NominalDiffTime, [Signer]) -> JWTVerification UserName
 verifyJWT need jwt (now, keys) = do
   verified <- mb . asum . flip map keys $ \k -> decodeAndVerifySignature k jwt
   let cs = claims verified
   expires <- mb $ JWT.exp cs
   name    <- mb $ UserName . stringOrURIToText <$> JWT.sub cs
   auth    <- mb $ maybe (Just True) (lc cs) need
-  if not auth
-    then JWTReject
-    else if secondsSinceEpoch expires < now then JWTExp else JWTOk name
+  if not auth then JWTReject else if secondsSinceEpoch expires < now then JWTExp else JWTOk name
  where
-  lc cs c = J.parseMaybe J.parseJSON
-    =<< Map.lookup c (unClaimsMap $ unregisteredClaims cs)
+  lc cs c = J.parseMaybe J.parseJSON =<< Map.lookup c (unClaimsMap $ unregisteredClaims cs)
   mb = maybe JWTReject JWTOk
 
-register (UserName name, LastName lastName, Password password) (log, db) = do
-  flip catches (Handler (\(e :: QueryError) -> return BadRequest) : defaultDbHandlers log) $ do
-    dbres <- execute
-      db
-      "INSERT INTO users (name, lastname, registrationdate, admin, password) VALUES (?, ?, current_timestamp, false, ?)"
-      (name, lastName, password)
-    log Info $ "new user" <> name <> " " <> lastName
-    return $ AppOk $ J.Bool True
+register (UserName name, LastName lastName, Password password) = execdb
+  "INSERT INTO users (name, lastname, registrationdate, admin, password) VALUES (?, ?, current_timestamp, false, ?)"
+  (name, lastName, password)
+  (Just $ "new user" <> name <> " " <> lastName)
 
-login genToken (UserName name, Password password) (log, db) =
-  flip catches (Handler (\(e :: QueryError) -> return AccessDenied) : defaultDbHandlers log) $ do
-    q <- query
-      db
-      "SELECT admin FROM users WHERE name = ? AND password = ?"
-      (name, password)
-    case q of
-      [Only admin] -> do
-        token <- genToken (admin, False, name, password)
-        log Info $ name <> " logged in"
-        return . AppOk $ J.String token
-      _ -> return AccessDenied
+login genToken (UserName name, Password password) (log, db) = catchDb log (return AccessDenied) $ do
+  q <- query db "SELECT admin FROM users WHERE name = ? AND password = ?" (name, password)
+  case q of
+    [Only admin] -> do
+      token <- genToken (admin, False, name, password)
+      log Info $ name <> " logged in"
+      return . AppOk $ J.String token
+    _ -> return AccessDenied
 
 generateSecret = hmacSecret . pack <$> replicateM 30 randomIO
 
