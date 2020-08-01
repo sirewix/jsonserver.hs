@@ -1,13 +1,10 @@
-{-# LANGUAGE
-  OverloadedStrings
-, ScopedTypeVariables
-, DeriveGeneric
-#-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 import           Auth
 import           Control.Concurrent
 import           Control.Monad
+import           Config
 import           Data.Char
 import           Data.Function
 import           Data.Functor
@@ -16,43 +13,12 @@ import           Database.PostgreSQL.Simple
 import           Entry
 import           Logger
 import           Misc
-import           Network.Wai.Handler.Warp       ( Port
-                                                , run
-                                                )
+import           Network.Wai.Handler.Warp       ( run )
 import           System.Environment
 import           System.IO
 import qualified Data.ByteString               as B
 
 import GHC.Generics
-
-instance FromJSON ConnectInfo where
-  parseJSON = withObject "ConnectInfo" $ \v ->
-    ConnectInfo
-      <$> v .:? "host"     .!= "localhost"
-      <*> v .:? "port"     .!= 5432
-      <*> v .:? "user"     .!= "postgres"
-      <*> v .:? "password" .!= ""
-      <*> v .:? "database" .!= "postgres"
-
-data Config = Config
-  { database                :: ConnectInfo
-  , port                    :: Port
-  , number_of_secrets       :: Int
-  , secrets_update_interval :: Int
-  , backdoor                :: Bool
-  , log_level               :: Priority
-  , log_file                :: Maybe String
-  } --deriving Generic
-instance FromJSON Config where
-  parseJSON = withObject "Configuration" $ \v ->
-    Config
-      <$> ((v .:? "postgres" .!= object []) >>= parseJSON)
-      <*> v .:? "port"                    .!= 3000
-      <*> v .:? "number_of_secrets"       .!= 2
-      <*> v .:? "secrets_update_interval" .!= 60 -- min
-      <*> v .:? "backdoor"                .!= False
-      <*> v .:? "log_level"               .!= Warning
-      <*> v .:? "log_file"
 
 main :: IO ()
 main = do
@@ -67,16 +33,15 @@ main = do
 
   db <- connect (database config)
   log Info $ "Starting server at http://localhost:" <> showText (port config)
-  if backdoor config then
-      log Warning $ "Backdoor is on, all token verification is off"
-  else pure ()
+  if backdoor config
+    then log Warning $ "Backdoor is on, all token verification is off"
+    else pure ()
 
   keys    <- replicateM (number_of_secrets config) generateSecret
   secrets <- newMVar keys
-  upd_thread <- forkIO $ do
+  void . forkIO $ do
     threadDelay $ 1000000 * 60 * (secrets_update_interval config)
     log Info $ "Updating keys"
     updateSecrets secrets
-  run (port config) (app (backdoor config) secrets (log, db))
+  run (port config) (app config secrets (log, db))
   log Info $ "Stopping"
-  killThread upd_thread

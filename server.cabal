@@ -30,6 +30,7 @@ library
       Authors
       Categories
       Comments
+      Config
       Entities
       Entry
       Logger
@@ -44,7 +45,8 @@ library
   hs-source-dirs:
       src
   build-depends:
-      aeson ==1.*
+      QuickCheck ==2.*
+    , aeson ==1.*
     , base >=4.7 && <5
     , bytestring ==0.10.10.*
     , containers ==0.6.*
@@ -67,7 +69,8 @@ executable server-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson ==1.*
+      QuickCheck ==2.*
+    , aeson ==1.*
     , base >=4.7 && <5
     , bytestring ==0.10.10.*
     , containers ==0.6.*
@@ -92,7 +95,8 @@ test-suite server-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson ==1.*
+      QuickCheck ==2.*
+    , aeson ==1.*
     , base >=4.7 && <5
     , bytestring ==0.10.10.*
     , containers ==0.6.*

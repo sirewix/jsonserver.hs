@@ -8,6 +8,7 @@ import           Auth
 import           Authors
 import           Categories
 import           Comments
+import           Config
 import           Data.Aeson                     ( (.=) )
 import           Data.ByteString.Lazy
 import           Data.Functor
@@ -34,12 +35,12 @@ import           Users
 import qualified Data.Aeson                    as J
 import qualified Data.Aeson.Types              as J
 
-app :: Bool -> Secrets -> (Logger, Connection) -> Application
-app backdoorOn secrets env@(log, _) req respond = do
+app :: Config -> Secrets -> (Logger, Connection) -> Application
+app config secrets env@(log, _) req respond = do
   log Debug $ showText req
   case pathInfo req of
     ["register"       ]       -> public register
-    ["login"          ]       -> public (login $ \arg -> generateJWT arg <$> runJWT secrets)
+    ["login"          ]       -> public (login $ \arg -> generateJWT (toInteger $ secrets_update_interval config * 60) arg <$> runJWT secrets)
 
     ["make_author"    ]       -> admin make_author
     ["get_authors"    ]       -> admin get_authors
@@ -93,7 +94,7 @@ app backdoorOn secrets env@(log, _) req respond = do
         JWTOk username -> f username arg env
         JWTExp         -> return TokenExpired
         JWTReject      -> return NotFound
-    Just (Nothing, arg) -> if backdoorOn then f (UserName "admin") arg env else return NotFound
+    Just (Nothing, arg) -> if (backdoor config) then f (UserName "admin") arg env else return NotFound
     Nothing             -> return NotFound
 
   path which x f = maybe (respond $ toHttp BadRequest) (which . f) (readT x)

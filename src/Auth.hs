@@ -45,6 +45,7 @@ data JWTVerification a =
     JWTOk a
   | JWTExp
   | JWTReject
+  deriving (Eq, Show)
 
 instance Functor JWTVerification where
   fmap f (JWTOk a) = JWTOk (f a)
@@ -63,11 +64,11 @@ instance Monad JWTVerification where
   JWTReject >>= _ = JWTReject
 
 
-generateJWT :: (Bool, Bool, Text, Text) -> (NominalDiffTime, [Signer]) -> Text
-generateJWT (admin, author, name, password) (now, (secret : _)) =
+generateJWT :: Integer -> (Bool, Bool, Text) -> (NominalDiffTime, [Signer]) -> Text
+generateJWT expTime (admin, author, name) (now, (secret : _)) =
   let header = mempty { alg = Just HS256 }
       claims = mempty { sub                = stringOrURI name
-                      , JWT.exp            = numericDate (now + 60 * 60)
+                      , JWT.exp            = numericDate (now + fromInteger expTime)
                       , unregisteredClaims = ClaimsMap $ Map.fromList ["admin" .= admin, "author" .= author]
                       }
   in  encodeSigned secret header claims
@@ -85,7 +86,11 @@ verifyJWT need jwt (now, keys) = do
   expires <- mb $ JWT.exp cs
   name    <- mb $ UserName . stringOrURIToText <$> JWT.sub cs
   auth    <- mb $ maybe (Just True) (lc cs) need
-  if not auth then JWTReject else if secondsSinceEpoch expires < now then JWTExp else JWTOk name
+  if not auth
+    then JWTReject
+  else if now < secondsSinceEpoch expires
+    then JWTOk name
+    else JWTExp
  where
   lc cs c = J.parseMaybe J.parseJSON =<< Map.lookup c (unClaimsMap $ unregisteredClaims cs)
   mb = maybe JWTReject JWTOk
@@ -99,7 +104,7 @@ login genToken (UserName name, Password password) (log, db) = catchDb log (retur
   q <- query db "SELECT admin FROM users WHERE name = ? AND password = ?" (name, password)
   case q of
     [Only admin] -> do
-      token <- genToken (admin, False, name, password)
+      token <- genToken (admin, False, name)
       log Info $ name <> " logged in"
       return . AppOk $ J.String token
     _ -> return AccessDenied

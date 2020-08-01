@@ -22,7 +22,7 @@ import           Misc
 import           Query
 import qualified Data.Aeson as J
 
-newtype UserName = UserName Text
+newtype UserName = UserName Text deriving (Eq, Show)
 newtype LastName = LastName Text
 newtype Password = Password Text
 
