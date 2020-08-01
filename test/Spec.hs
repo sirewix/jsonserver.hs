@@ -29,10 +29,10 @@ main = do
               else JWTExp
 
   quickCheck $ \ ( admin
-               , author
-               , ASCIIString name
-               , ASCIIString secret
-               ) ->
+                 , author
+                 , ASCIIString name
+                 , ASCIIString secret
+                 ) ->
     let secrets = [hmacSecret $ pack secret]
         jwt = generateJWT 10 (not admin, not author, pack name) (1, secrets)
         need = pack <$>
@@ -43,3 +43,15 @@ main = do
         == if admin || author
               then JWTReject
               else JWTOk . UserName $ pack name
+
+  quickCheck $ \ ( ASCIIString name
+                 , ASCIIString secret1
+                 , ASCIIString secret2
+                 ) ->
+    let secrets1 = [hmacSecret $ pack secret1]
+        secrets2 = [hmacSecret $ pack secret2]
+        jwt = generateJWT 10 (False, False, pack name) (1, secrets1)
+     in verifyJWT Nothing jwt (1, secrets2)
+        == if secret1 == secret2
+              then JWTOk . UserName $ pack name
+              else JWTReject
