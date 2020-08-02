@@ -18,7 +18,7 @@ get_users (Page page) = queryPaged
         count(*) OVER(),
         json_build_object (
             'name', name,
-            'last_name', lastName,
+            'lastname', lastName,
             'admin', admin,
             'avatar', avatar,
             'registration_date', registrationDate

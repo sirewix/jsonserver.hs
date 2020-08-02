@@ -27,12 +27,12 @@ get_authors (UserName admin) (Page page) = queryPaged
 make_author (UserName admin) (UserName name, Description description) = execdb
   "INSERT INTO authors (username, description) VALUES (?, ?)"
   (name, description)
-  (Just $  admin <> " promoted " <> name <> " to authors with description \"" <> description <> "\"")
+  (Just $ admin <> " promoted " <> name <> " to authors with description \"" <> description <> "\"")
 
 edit_author (UserName admin) (UserName name, Description description) = execdb
   "UPDATE authors SET description = ? WHERE username = ?"
   (description, name)
-  (Just $  admin <> " edited " <> name <> "'s description to \"" <> description <> "\"")
+  (Just $ admin <> " edited " <> name <> "'s description to \"" <> description <> "\"")
 
 delete_author (UserName admin) (UserName name) = execdb
   "DELETE FROM authors WHERE username = ?"

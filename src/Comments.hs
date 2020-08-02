@@ -23,7 +23,7 @@ get_comments (PostId pid) (Page page) = queryPaged
             'comment', comment,
             'user', json_build_object(
                 'name', name,
-                'last_name', lastName,
+                'lastname', lastName,
                 'admin', admin,
                 'avatar', avatar,
                 'registration_date', registrationDate
