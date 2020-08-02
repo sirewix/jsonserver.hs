@@ -8,7 +8,20 @@ import           Data.Text                      ( pack )
 
 main :: IO ()
 main = do
-  putStr "Testing verification\n"
+  putStrLn "Testing verification"
+  quickCheck $ \ ( ASCIIString name
+                 , ASCIIString secret1
+                 , ASCIIString secret2
+                 ) ->
+    let secrets1 = [hmacSecret $ pack secret1]
+        secrets2 = [hmacSecret $ pack secret2]
+        jwt = generateJWT 10 (False, False, pack name) (1, secrets1)
+     in verifyJWT Nothing jwt (1, secrets2)
+        == if secret1 == secret2
+              then JWTOk . UserName $ pack name
+              else JWTReject
+
+  putStrLn "Testing verification expiration"
   quickCheck $ \ ( admin
                  , author
                  , ASCIIString name
@@ -28,6 +41,7 @@ main = do
               then JWTOk . UserName $ pack name
               else JWTExp
 
+  putStrLn "Testing verification claims"
   quickCheck $ \ ( admin
                  , author
                  , ASCIIString name
@@ -44,14 +58,3 @@ main = do
               then JWTReject
               else JWTOk . UserName $ pack name
 
-  quickCheck $ \ ( ASCIIString name
-                 , ASCIIString secret1
-                 , ASCIIString secret2
-                 ) ->
-    let secrets1 = [hmacSecret $ pack secret1]
-        secrets2 = [hmacSecret $ pack secret2]
-        jwt = generateJWT 10 (False, False, pack name) (1, secrets1)
-     in verifyJWT Nothing jwt (1, secrets2)
-        == if secret1 == secret2
-              then JWTOk . UserName $ pack name
-              else JWTReject

@@ -1,0 +1,4 @@
+#!/bin/sh
+source ./common
+
+query "delete_comment?cid=$1"

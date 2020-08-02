@@ -29,7 +29,7 @@ CREATE TABLE categories (
 
 CREATE TABLE tags (
     id serial PRIMARY KEY
-  , tag varchar (20) UNIQUE
+  , tag varchar (20) NOT NULL UNIQUE
 );
 
 CREATE TABLE posts (

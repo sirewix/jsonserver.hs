@@ -31,7 +31,7 @@ create_category (UserName admin) (Name category, mbcid) = queryOne
   (Just $ \q -> admin <> " created category " <> showText q <> " '" <> category <> "'")
 
 edit_category (UserName admin) (Name category, CategoryId cid) = execdb
-  "UPDATE categories SET category = ? WHERE id = ?"
+  "UPDATE categories SET name = ? WHERE id = ?"
   (category, cid)
   (Just $ admin <> " changed category " <> showText cid <> " to '" <> category <> "'")
 

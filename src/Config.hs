@@ -22,7 +22,8 @@ data Config = Config
   , backdoor                :: Bool
   , log_level               :: Priority
   , log_file                :: Maybe String
-  } --deriving Generic
+  , db_refresh_interval     :: Maybe Int
+  }
 
 instance FromJSON Config where
   parseJSON = withObject "Configuration" $ \v ->
@@ -34,3 +35,4 @@ instance FromJSON Config where
       <*> v .:? "backdoor"                .!= False
       <*> v .:? "log_level"               .!= Warning
       <*> v .:? "log_file"
+      <*> v .:? "db_refresh_interval"     .!= Just 1000 -- ms

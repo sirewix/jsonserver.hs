@@ -1,0 +1,4 @@
+#!/bin/sh
+source ./common
+
+query "make_author?username=$1&description=$2"

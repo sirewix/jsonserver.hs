@@ -1,0 +1,8 @@
+#!/bin/sh
+source ./common
+
+if [[ -z $1 ]]; then
+    query "get_categories"
+else
+    query "get_categories?cid=$1"
+fi

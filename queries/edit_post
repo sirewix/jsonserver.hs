@@ -1,0 +1,4 @@
+#!/bin/sh
+source ./common
+
+query "edit_post?pid=$1&title=$2&cid=$3&text=$4&image=$3&images=$5"

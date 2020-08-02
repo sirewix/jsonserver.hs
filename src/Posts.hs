@@ -42,8 +42,7 @@ create_post (UserName author) (Title title, CategoryId cid, Content content, Ima
   = queryOne
     [sql|
     INSERT INTO posts (title, date, author, category, content, mainImage, images, published)
-    VALUES (?, current_timestamp, (SELECT id FROM authors WHERE username = ?), ?, ?, ?, ?, false) RETURNING id;
-    REFRESH MATERIALIZED VIEW posts_view;
+    VALUES (?, current_timestamp, (SELECT id FROM authors WHERE username = ?), ?, ?, ?, ?, false) RETURNING id
     |]
     (title, author, cid, content, img, Images images)
     (J.Number . fromInteger)
@@ -52,8 +51,7 @@ create_post (UserName author) (Title title, CategoryId cid, Content content, Ima
 attach_tag (UserName author) (PostId pid, Tag tag) = execdb
   [sql|
     INSERT INTO tag_post_relations (tag, post)
-    (SELECT (?), id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?));
-    REFRESH MATERIALIZED VIEW posts_view;
+    (SELECT (?), id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
   |]
   (tag, pid, author)
   Nothing
@@ -61,8 +59,7 @@ attach_tag (UserName author) (PostId pid, Tag tag) = execdb
 deattach_tag (UserName author) (PostId pid, Tag tag) = execdb
   [sql|
     DELETE FROM tag_post_relations WHERE tag = ? AND post =
-    (SELECT id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?));
-    REFRESH MATERIALIZED VIEW posts_view;
+    (SELECT id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
   |]
   (tag, pid, author)
   Nothing
@@ -87,8 +84,7 @@ edit_post (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, 
     mainImage = COALESCE (?, mainImage),
     images = COALESCE (?, images),
     date = current_timestamp
-    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?);
-    REFRESH MATERIALIZED VIEW posts_view;
+    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
     |]
     (mbtitle, mbcategory, mbcontent, mbimg, mbimgs, pid, author)
     (Just $ author <> " changed post " <> showText pid)
@@ -97,8 +93,7 @@ publish_post (UserName author) (PostId pid) = execdb
   [sql|
     UPDATE posts
     SET published = true
-    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?);
-    REFRESH MATERIALIZED VIEW posts_view;
+    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
   |]
   (pid, author)
   (Just $ author <> " published post " <> showText pid)
@@ -106,8 +101,7 @@ publish_post (UserName author) (PostId pid) = execdb
 delete_post (UserName author) (PostId pid) = execdb
   [sql|
     DELETE FROM posts
-    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?);
-    REFRESH MATERIALIZED VIEW posts_view;
+    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
   |]
   (pid, author)
   (Just $ author <> " deleted post " <> showText pid)

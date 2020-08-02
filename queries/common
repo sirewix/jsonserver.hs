@@ -1,0 +1,17 @@
+#!/bin/sh
+
+default() {
+    if [[ -z $2 ]]; then
+        echo $1
+    else
+        echo $2
+    fi
+}
+
+query() {
+    URL=$(default "http://localhost:3000" ${SERVER_URL})
+    PP=$(default "json_pp" ${JSON_PRETTIFIER})
+    Q="${URL}/${1}"
+    echo ${Q}
+    curl -s "${Q}" | ${PP}
+}

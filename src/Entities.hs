@@ -108,7 +108,6 @@ instance ToField Image where
 newtype Images = Images [Text]
 instance Query Images where
   parseQuery q = Images <$> (readT =<< "images" .: q)
-  --parseQuery q = CategoryId <$> ( =<< "cid" .: q)
 
 newtype PostId = PostId Int
 

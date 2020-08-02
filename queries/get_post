@@ -1,0 +1,4 @@
+#!/bin/sh
+source ./common
+
+query "get_post?pid=$1"

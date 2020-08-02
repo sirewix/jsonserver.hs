@@ -13,6 +13,7 @@ module App
   , paginate
   , queryOne
   , queryPaged
+  , dbrefresh
   )
 where
 
@@ -57,12 +58,11 @@ catchDb log ret = flip catches (Handler (\(e :: QueryError) -> ret) : defaultDbH
 type Endpoint = (Logger, Connection) -> IO AppResponse
 
 paginate :: Int -> [(Int, J.Value)] -> AppResponse
-paginate pageSize q = if null q
-  then BadRequest
-  else AppOk $ J.object
-    [ "pages" .= ((fst (head q) + pageSize - 1) `quot` pageSize)
-    , "content" .= array (map snd q)
-    ]
+paginate pageSize q =
+  let (pages, content) = if null q
+        then (0, J.Null)
+        else ((fst (head q) + pageSize - 1) `quot` pageSize, array (map snd q))
+  in  AppOk $ J.object ["pages" .= pages, "content" .= content]
 
 limit :: Int -> String
 limit pageSize = show pageSize
@@ -90,3 +90,6 @@ queryOne q fq g msg (log, db) = catchDb log (return BadRequest) $ do
     Just msg -> log Info $ msg r
     Nothing  -> return ()
   return . AppOk $ g r
+
+dbrefresh db = execute db "REFRESH MATERIALIZED VIEW posts_view;" ()
+

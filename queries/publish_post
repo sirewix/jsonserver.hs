@@ -1,0 +1,4 @@
+#!/bin/sh
+source ./common
+
+query "publish_post?pid=$1"

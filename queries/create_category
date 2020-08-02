@@ -1,0 +1,8 @@
+#!/bin/sh
+source ./common
+
+if [[ -z $2 ]]; then
+    query "create_category?name=$1"
+else
+    query "create_category?name=$1&cid=$2"
+fi

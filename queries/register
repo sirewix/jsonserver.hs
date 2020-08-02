@@ -1,0 +1,4 @@
+#!/bin/sh
+source ./common
+
+query "register?username=$1&lastname=$2&password=$3"
