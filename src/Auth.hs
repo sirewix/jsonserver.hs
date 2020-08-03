@@ -17,19 +17,15 @@ where
 
 import           App
 import           Control.Concurrent.MVar
-import           Control.Exception
 import           Control.Monad
 import           Data.Aeson                     ( (.=) )
 import           Data.Foldable
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
-import           Data.Text.Encoding
 import           Data.Time.Clock
 import           Data.Time.Clock.POSIX
 import           Database.PostgreSQL.Simple
-                                         hiding ( Query )
-import           Query
 import           Logger
 import           Entities
 import           System.Random
@@ -49,12 +45,14 @@ data JWTVerification a =
 
 instance Functor JWTVerification where
   fmap f (JWTOk a) = JWTOk (f a)
-  fmap f JWTExp    = JWTExp
-  fmap f JWTReject = JWTReject
+  fmap _ JWTExp    = JWTExp
+  fmap _ JWTReject = JWTReject
 
 instance Applicative JWTVerification where
   pure = JWTOk
   (JWTOk f) <*> (JWTOk a) = JWTOk (f a)
+  (JWTOk _) <*> JWTExp    = JWTExp
+  (JWTOk _) <*> JWTReject = JWTReject
   JWTExp    <*> _         = JWTExp
   JWTReject <*> _         = JWTReject
 
@@ -65,13 +63,18 @@ instance Monad JWTVerification where
 
 
 generateJWT :: Integer -> (Bool, Bool, Text) -> (NominalDiffTime, [Signer]) -> Text
+generateJWT _ (_, _, _) (_, []) = error "secrets list must not be empty"
 generateJWT expTime (admin, author, name) (now, (secret : _)) =
-  let header = mempty { alg = Just HS256 }
-      claims = mempty { sub                = stringOrURI name
-                      , JWT.exp            = numericDate (now + fromInteger expTime)
-                      , unregisteredClaims = ClaimsMap $ Map.fromList ["admin" .= admin, "author" .= author]
-                      }
-  in  encodeSigned secret header claims
+  let
+    header = mempty { alg = Just HS256 }
+    claims = mempty
+      { sub                = stringOrURI name
+      , JWT.exp            = numericDate (now + fromInteger expTime)
+      , unregisteredClaims = ClaimsMap
+                               $ Map.fromList ["admin" .= admin, "author" .= author]
+      }
+  in
+    encodeSigned secret header claims
 
 runJWT :: Secrets -> IO (NominalDiffTime, [Signer])
 runJWT secrets = do
@@ -105,7 +108,7 @@ login genToken (UserName name, Password password) (log, db) = catchDb log (retur
   case q of
     [Only admin] -> do
       token <- genToken (admin, False, name)
-      log Info $ name <> " logged in"
+      _ <- log Info $ name <> " logged in"
       return . AppOk $ J.String token
     _ -> return AccessDenied
 

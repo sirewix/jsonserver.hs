@@ -2,23 +2,15 @@
 
 module Categories where
 import           App
-import           Data.Aeson                     ( (.=) )
-import           Data.Text                      ( Text )
-import           Data.Text.Encoding
-import           Database.PostgreSQL.Simple     ( query
-                                                , execute
-                                                , Only(..)
-                                                )
+import           Database.PostgreSQL.Simple     ( query )
 import           Entities
-import           Logger
 import           Misc
-import           Query
 import qualified Data.Aeson                    as J
 
 get_categories :: Maybe CategoryId -> Endpoint
 get_categories mbcid (log, db) = catchDb log (return BadRequest) $ do
   let cond = case mbcid of
-        Just a  -> "parent_id = ?"
+        Just _  -> "parent_id = ?"
         Nothing -> "parent_id is ?"
   q <- query db ("SELECT id, name FROM categories WHERE " <> cond) [mbcid] :: IO [Category]
   return . AppOk $ J.toJSON q

@@ -6,21 +6,13 @@
 module Search(posts) where
 import           App
 import           Control.Applicative
-import           Data.Aeson                     ( (.=) )
-import           Data.ByteString                ( ByteString
-                                                , intercalate
-                                                )
+import           Data.ByteString                ( intercalate )
 import           Data.Maybe
-import           Data.Text                      ( Text )
 import           Data.Text.Encoding
-import           Data.Yaml                      ( array )
 import           Database.PostgreSQL.Simple     ( query
-                                                , execute
-                                                , Only(..)
                                                 , formatQuery
                                                 )
 import           Database.PostgreSQL.Simple.SqlQQ
-import           Database.PostgreSQL.Simple.Time
 import           Database.PostgreSQL.Simple.Types
                                                 ( PGArray(..) )
 import           Entities
@@ -28,7 +20,6 @@ import           Logger
 import           Misc
 import           Query
 import qualified Data.Aeson                    as J
-import qualified Data.ByteString.Char8         as B
 import qualified Database.PostgreSQL.Simple.Types
                                                as P
 
@@ -56,8 +47,9 @@ posts (mbSort, TagsInAll tags_in tags_all, createdAt, mbAuthor, mbcid, mbtitle, 
             <> intercalate " AND " ("published = true" : conditions)
             <> " AND ("
             <> (null searchCond ? "true" $ intercalate " OR " searchCond)
-            <> ") LIMIT ? OFFSET ? "
-    log Debug $ decodeUtf8 $ P.fromQuery q
+            <> ") " <> orderBy mbSort
+            <> " LIMIT ? OFFSET ? "
+    _ <- log Debug $ decodeUtf8 $ P.fromQuery q
     q <- query db q (limit searchPageSize, offset searchPageSize page) :: IO [(Int, J.Value)]
     return $ paginate searchPageSize q
  where

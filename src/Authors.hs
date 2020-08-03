@@ -8,11 +8,10 @@ module Authors where
 import           App
 import           Database.PostgreSQL.Simple.SqlQQ
 import           Entities
-import           Misc
 
 authorsPageSize = 20
 
-get_authors (UserName admin) (Page page) = queryPaged
+get_authors (UserName _admin) (Page page) = queryPaged
   authorsPageSize
   [sql|
     SELECT

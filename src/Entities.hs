@@ -8,19 +8,24 @@
 , TypeOperators
 #-}
 module Entities where
-import           Data.Aeson (ToJSON,(.=))
-import           Data.Text                      ( Text, pack, unpack)
-import           Data.Text.Encoding
+import           Control.Arrow
+import           Data.Aeson                     ( ToJSON
+                                                , (.=)
+                                                )
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
 import           Data.Time.Calendar
-import           Database.PostgreSQL.Simple hiding (Query)
-import           Database.PostgreSQL.Simple.FromRow
-import           Database.PostgreSQL.Simple.Time
+import           Database.PostgreSQL.Simple
+                                         hiding ( Query )
+import           Database.PostgreSQL.Simple.Time as T
 import           Database.PostgreSQL.Simple.ToField
-import           Database.PostgreSQL.Simple.Types (PGArray(..))
+import           Database.PostgreSQL.Simple.Types
+                                                ( PGArray(..) )
 import           GHC.Generics
 import           Misc
 import           Query
-import qualified Data.Aeson as J
+import qualified Data.Aeson                    as J
 
 newtype UserName = UserName Text deriving (Eq, Show)
 newtype LastName = LastName Text
@@ -59,14 +64,12 @@ data Category = Category Int Text
     deriving (Generic, FromRow)
 
 instance ToJSON Category where
-    toJSON (Category id name) = J.object
-        [ "cid" .= id
-        , "name" .= name ]
+  toJSON (Category id name) = J.object ["cid" .= id, "name" .= name]
 
 newtype CategoryId = CategoryId Int
 
 instance ToField CategoryId where
-    toField (CategoryId cid) = toField cid
+  toField (CategoryId cid) = toField cid
 
 instance Query CategoryId where
   parseQuery q = CategoryId <$> (readT =<< "cid" .: q)
@@ -75,9 +78,17 @@ newtype Name = Name Text
 instance Query Name where
   parseQuery q = Name <$> "name" .: q
 
-instance ToJSON Date where
-    toJSON (Finite d) = J.String $ pack $ showGregorian d
-    toJSON _ = J.Null
+newtype Date = Date { unDate :: T.Date }
+
+instance ToField Entities.Date where
+  toField (Date d) = toField d
+
+instance Read Entities.Date where
+  readsPrec d = map (Date *** id) . readsPrec d
+
+instance ToJSON Entities.Date where
+  toJSON (Date (Finite d)) = J.String $ pack $ showGregorian d
+  toJSON _                 = J.Null
 
 newtype AuthorName = AuthorName Text
 instance Query AuthorName where

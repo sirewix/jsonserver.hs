@@ -10,8 +10,6 @@ import           Categories
 import           Comments
 import           Config
 import           Data.Aeson                     ( (.=) )
-import           Data.ByteString.Lazy
-import           Data.Functor
 import           Data.Text                      ( Text )
 import           Data.Text.Encoding
 import           Database.PostgreSQL.Simple
@@ -33,7 +31,6 @@ import           Search
 import           Tags
 import           Users
 import qualified Data.Aeson                    as J
-import qualified Data.Aeson.Types              as J
 
 app :: Config -> Secrets -> (Logger, Connection) -> Application
 app config secrets env@(log, _) req respond = do

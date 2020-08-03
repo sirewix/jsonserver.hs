@@ -6,12 +6,12 @@ cabal-version: 1.12
 
 name:           server
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/server#readme>
-homepage:       https://github.com/githubuser/server#readme
-bug-reports:    https://github.com/githubuser/server/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2020 Author name here
+description:    Please see the README on GitHub at <https://github.com/wixe/jsonserver.hs#README.md>
+homepage:       https://github.com/wixe/jsonserver.hs#readme
+bug-reports:    https://github.com/wixe/jsonserver.hs/issues
+author:         Vladislav Wixe
+maintainer:     wixe@ya.ru
+copyright:      2020 Vladislav Wixe
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/server
+  location: https://github.com/wixe/jsonserver.hs
 
 library
   exposed-modules:
@@ -44,6 +44,7 @@ library
       Paths_server
   hs-source-dirs:
       src
+  ghc-options: -Wall -Wno-name-shadowing
   build-depends:
       QuickCheck ==2.*
     , aeson ==1.*
@@ -67,7 +68,7 @@ executable server-exe
       Paths_server
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck ==2.*
     , aeson ==1.*
@@ -93,7 +94,7 @@ test-suite server-test
       Paths_server
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck ==2.*
     , aeson ==1.*

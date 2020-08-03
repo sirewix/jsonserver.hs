@@ -25,7 +25,6 @@ import           Data.Yaml                      ( array )
 import           Database.PostgreSQL.Simple
                                          hiding ( Query )
 import           Logger
-import           Misc
 import qualified Data.Aeson                    as J
 
 data AppResponse =
@@ -46,14 +45,14 @@ defaultDbHandlers log =
         >> return InternalError
     )
   , Handler (\(e :: ResultError) -> log Error (pack $ showResultError e) >> return InternalError)
-  , Handler (\(e :: PatternMatchFail) -> return BadRequest)
+  , Handler (\(_ :: PatternMatchFail) -> return BadRequest)
   ]
 
 showResultError (Incompatible     sqlType _ _     hType msg) = msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
 showResultError (UnexpectedNull   _       _ field _     msg) = msg <> " @ " <> field
 showResultError (ConversionFailed sqlType _ _     hType msg) = msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
 
-catchDb log ret = flip catches (Handler (\(e :: QueryError) -> ret) : defaultDbHandlers log)
+catchDb log ret = flip catches (Handler (\(_ :: QueryError) -> ret) : defaultDbHandlers log)
 
 type Endpoint = (Logger, Connection) -> IO AppResponse
 

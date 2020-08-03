@@ -29,7 +29,7 @@ get_users (Page page) = queryPaged
   |]
   (limit usersPageSize, offset usersPageSize page)
 
-create_user (UserName admin) = register -- eew
+create_user (UserName _admin) = register -- eew
 
 delete_user (UserName admin) (UserName user) = execdb
   "DELETE FROM users WHERE name = ?"

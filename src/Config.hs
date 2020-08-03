@@ -5,17 +5,19 @@ import           Database.PostgreSQL.Simple
 import           Logger
 import           Network.Wai.Handler.Warp       ( Port )
 
-instance FromJSON ConnectInfo where
-  parseJSON = withObject "ConnectInfo" $ \v ->
-    ConnectInfo
+newtype DBConfig = DBConfig { unDBConfig :: ConnectInfo }
+
+instance FromJSON DBConfig where
+  parseJSON = withObject "DBConfig" $ \v ->
+    DBConfig <$> (ConnectInfo
       <$> v .:? "host"     .!= "localhost"
       <*> v .:? "port"     .!= 5432
       <*> v .:? "user"     .!= "postgres"
       <*> v .:? "password" .!= ""
-      <*> v .:? "database" .!= "postgres"
+      <*> v .:? "database" .!= "postgres")
 
 data Config = Config
-  { database                :: ConnectInfo
+  { database                :: DBConfig
   , port                    :: Port
   , number_of_secrets       :: Int
   , secrets_update_interval :: Int
