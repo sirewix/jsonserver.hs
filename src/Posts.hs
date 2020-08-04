@@ -1,7 +1,7 @@
 {-# LANGUAGE
-  OverloadedStrings
-, QuasiQuotes
-#-}
+    OverloadedStrings
+  , QuasiQuotes
+  #-}
 
 module Posts where
 
@@ -19,13 +19,13 @@ post (PostId pid) () = queryOne
   id
   Nothing
 
-get_post (UserName author) (PostId pid) = queryOne
+getPost (UserName author) (PostId pid) = queryOne
   "SELECT json FROM posts_view WHERE id = ? AND authorname = ?"
   (pid, author)
   id
   Nothing
 
-get_posts (UserName author) (Page page) = queryPaged
+getPosts (UserName author) (Page page) = queryPaged
   postsPageSize
   [sql|
     SELECT
@@ -38,7 +38,7 @@ get_posts (UserName author) (Page page) = queryPaged
   |]
   (author, limit postsPageSize, offset postsPageSize page)
 
-create_post (UserName author) (Title title, CategoryId cid, Content content, Image img, Images images)
+createPost (UserName author) (Title title, CategoryId cid, Content content, Image img, Images images)
   = queryOne
     [sql|
     INSERT INTO posts (title, date, author, category, content, mainImage, images, published)
@@ -48,7 +48,7 @@ create_post (UserName author) (Title title, CategoryId cid, Content content, Ima
     (J.Number . fromInteger)
     (Just $ \q -> author <> " created post " <> showText q <> " titled '" <> title <> "'")
 
-attach_tag (UserName author) (PostId pid, Tag tag) = execdb
+attachTag (UserName author) (PostId pid, Tag tag) = execdb
   [sql|
     INSERT INTO tag_post_relations (tag, post)
     (SELECT (?), id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
@@ -56,7 +56,7 @@ attach_tag (UserName author) (PostId pid, Tag tag) = execdb
   (tag, pid, author)
   Nothing
 
-deattach_tag (UserName author) (PostId pid, Tag tag) = execdb
+deattachTag (UserName author) (PostId pid, Tag tag) = execdb
   [sql|
     DELETE FROM tag_post_relations WHERE tag = ? AND post =
     (SELECT id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
@@ -64,7 +64,7 @@ deattach_tag (UserName author) (PostId pid, Tag tag) = execdb
   (tag, pid, author)
   Nothing
 
-edit_post
+editPost
   :: UserName
   -> ( PostId
      , Maybe Title
@@ -74,7 +74,7 @@ edit_post
      , Maybe Images
      )
   -> Endpoint
-edit_post (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, mbimgs)
+editPost (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, mbimgs)
   = execdb
     [sql|
     UPDATE posts SET
@@ -89,7 +89,7 @@ edit_post (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, 
     (mbtitle, mbcategory, mbcontent, mbimg, mbimgs, pid, author)
     (Just $ author <> " changed post " <> showText pid)
 
-publish_post (UserName author) (PostId pid) = execdb
+publishPost (UserName author) (PostId pid) = execdb
   [sql|
     UPDATE posts
     SET published = true
@@ -98,7 +98,7 @@ publish_post (UserName author) (PostId pid) = execdb
   (pid, author)
   (Just $ author <> " published post " <> showText pid)
 
-delete_post (UserName author) (PostId pid) = execdb
+deletePost (UserName author) (PostId pid) = execdb
   [sql|
     DELETE FROM posts
     WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)

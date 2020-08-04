@@ -23,7 +23,7 @@ main = do
   configContents <- if null args then return "{}" else B.readFile (head args)
 
   config         <- decodeThrow configContents
-  hlog           <- maybe (pure stdout) (\f -> openFile f WriteMode) (log_file config)
+  hlog           <- maybe (pure stdout) (`openFile` WriteMode) (log_file config)
   log            <- newMVar hlog <&> \out -> newLogger out (log_level config)
 
   db             <- connect (unDBConfig $ database config)
@@ -37,9 +37,7 @@ main = do
 
   let schedule ms msg action = void . forkIO . forever $ do
         threadDelay (1000 * ms)
-        case msg of
-          Just msg -> log Info msg
-          Nothing  -> return ()
+        forM_ msg (log Info)
         action
 
   schedule (1000 * 60 * secrets_update_interval config)
@@ -52,4 +50,4 @@ main = do
     Just interval -> schedule interval Nothing (dbrefresh db)
 
   run (port config) (app config secrets (log, db))
-  log Info $ "Stopping"
+  log Info "Stopping"

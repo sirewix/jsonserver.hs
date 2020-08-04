@@ -1,7 +1,7 @@
 {-# LANGUAGE
-  OverloadedStrings
-, QuasiQuotes
-#-}
+    OverloadedStrings
+  , QuasiQuotes
+  #-}
 
 module Users where
 import           App
@@ -11,7 +11,7 @@ import           Database.PostgreSQL.Simple.SqlQQ
 
 usersPageSize = 20
 
-get_users (Page page) = queryPaged
+getUsers (Page page) = queryPaged
   usersPageSize
   [sql|
     SELECT
@@ -29,9 +29,9 @@ get_users (Page page) = queryPaged
   |]
   (limit usersPageSize, offset usersPageSize page)
 
-create_user (UserName _admin) = register -- eew
+createUser (UserName _admin) = register -- eew
 
-delete_user (UserName admin) (UserName user) = execdb
+deleteUser (UserName admin) (UserName user) = execdb
   "DELETE FROM users WHERE name = ?"
   [user]
   (Just $ admin <> " deleted user " <> user)

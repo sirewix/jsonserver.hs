@@ -1,7 +1,7 @@
 {-# LANGUAGE
-  OverloadedStrings
-, ScopedTypeVariables
-#-}
+    OverloadedStrings
+  , ScopedTypeVariables
+  #-}
 module App
   ( AppResponse(..)
   , Endpoint
@@ -18,6 +18,7 @@ module App
 where
 
 import           Control.Exception
+import           Control.Monad
 import           Data.Aeson                     ( (.=) )
 import           Data.Text                      ( pack )
 import           Data.Text.Encoding
@@ -64,7 +65,7 @@ paginate pageSize q =
   in  AppOk $ J.object ["pages" .= pages, "content" .= content]
 
 limit :: Int -> String
-limit pageSize = show pageSize
+limit = show
 
 offset :: Int -> Int -> String
 offset pageSize page = show ((page - 1) * pageSize)
@@ -73,9 +74,7 @@ execdb q fq msg (log, db) = catchDb log (return BadRequest) $ do
   dbres <- execute db q fq
   if dbres == 1
     then do
-      case msg of
-        Just msg -> log Info $ msg
-        Nothing  -> return ()
+      forM_ msg (log Info)
       return . AppOk $ J.Null
     else return BadRequest
 

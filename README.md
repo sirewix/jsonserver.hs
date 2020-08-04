@@ -63,40 +63,40 @@ On error:
 |---------------------|:--------:|------------------------------------------------------------|-------------------------------------|
 | register            | *public* | `username`, `lastname`, `password`                         | `null`                              |
 | login               | *public* | `username`, `password`                                     | Token                               |
-| make_author         |  *admin* | `username`, `description`                                  | `null`                              |
-| get_authors         |  *admin* | [`page`]                                                   | Page of all authors                 |
-| edit_author         |  *admin* | `username`, `description`                                  | `null`                              |
-| delete_author       |  *admin* | `username`                                                 | `null`                              |
-| get_tags            | *public* | [`page`]                                                   | Page of all tags                    |
-| create_tag          |  *admin* | `name`                                                     | Tag id (`tag`)                      |
-| edit_tag            |  *admin* | `tag`, `name`                                              | `null`                              |
-| delete_tag          |  *admin* | `tag`                                                      | `null`                              |
-| get_categories      | *public* | [`cid`], [`page`]                                          | Page of subcategories of a category |
-| create_category     |  *admin* | `name`, [`cid`]                                            | Category id (`cid`)                 |
-| edit_category       |  *admin* | `name`, `cid`                                              | `null`                              |
-| delete_category     |  *admin* | `cid`                                                      | `null`                              |
-| get_users           | *public* | [`page`]                                                   | Page of all users                   |
-| create_user         |  *admin* | `username`, `lastname`, `password`                         | `null`                              |
-| delete_user         |  *admin* | `username`                                                 | `null`                              |
-| get_post            | *author* | `pid`                                                      | Author's post or draft              |
-| get_posts           | *author* | [`page`]                                                   | Page of author's posts and drafts   |
-| create_post         | *author* | `title`, `cid`, `text`, `image`, `images` (array)          | Post id (`pid`)                     |
-| edit_post           | *author* | `pid`, [`title`], [`cid`], [`text`], [`image`], [`images`] | `null`                              |
-| publish_post        | *author* | `pid`                                                      | `null`                              |
-| delete_post         | *author* | `pid`                                                      | `null`                              |
-| attach_tag          | *author* | `cid`, `pid`                                               | `null`                              |
-| deattach_tag        | *author* | `cid`, `pid`                                               | `null`                              |
+| makeAuthor          |  *admin* | `username`, `description`                                  | `null`                              |
+| getAuthors          |  *admin* | [`page`]                                                   | Page of all authors                 |
+| editAuthor          |  *admin* | `username`, `description`                                  | `null`                              |
+| deleteAuthor        |  *admin* | `username`                                                 | `null`                              |
+| getTags             | *public* | [`page`]                                                   | Page of all tags                    |
+| createTag           |  *admin* | `name`                                                     | Tag id (`tag`)                      |
+| editTag             |  *admin* | `tag`, `name`                                              | `null`                              |
+| deleteTag           |  *admin* | `tag`                                                      | `null`                              |
+| getCategories       | *public* | [`cid`], [`page`]                                          | Page of subcategories of a category |
+| createCategory      |  *admin* | `name`, [`cid`]                                            | Category id (`cid`)                 |
+| editCategory        |  *admin* | `name`, `cid`                                              | `null`                              |
+| deleteCategory      |  *admin* | `cid`                                                      | `null`                              |
+| getUsers            | *public* | [`page`]                                                   | Page of all users                   |
+| createUser          |  *admin* | `username`, `lastname`, `password`                         | `null`                              |
+| deleteUser          |  *admin* | `username`                                                 | `null`                              |
+| getPost             | *author* | `pid`                                                      | Author's post or draft              |
+| getPosts            | *author* | [`page`]                                                   | Page of author's posts and drafts   |
+| createPost          | *author* | `title`, `cid`, `text`, `image`, `images` (array)          | Post id (`pid`)                     |
+| editPost            | *author* | `pid`, [`title`], [`cid`], [`text`], [`image`], [`images`] | `null`                              |
+| publishPost         | *author* | `pid`                                                      | `null`                              |
+| deletePost          | *author* | `pid`                                                      | `null`                              |
+| attachTag           | *author* | `cid`, `pid`                                               | `null`                              |
+| deattachTag         | *author* | `cid`, `pid`                                               | `null`                              |
 | post/{pid}          | *public* |                                                            | Published post                      |
 | post/{pid}/comments | *public* | [`page`]                                                   | Page of comments                    |
 | posts               | *public* | [`page`], see others in search parameters table            | Page of published posts             |
-| add_comment         |  *user*  | `pid`, `text`                                              | Comment id (`cid`)                  |
-| delete_comment      |  *user*  | `cid`                                                      | `null`                              |
+| addComment          |  *user*  | `pid`, `text`                                              | Comment id (`cid`)                  |
+| deleteComment       |  *user*  | `cid`                                                      | `null`                              |
 
 ### Search parameters
 | Parameter      | Type                                                         | Description                                         |
 |----------------|--------------------------------------------------------------|-----------------------------------------------------|
 | sort           | `ByDate` \| `ByAuthor` \| `ByCategory` \| `ByNumberOfImages` | Sort by                                             |
-| sort_reversed  | `ByDate` \| `ByAuthor` \| `ByCategory` \| `ByNumberOfImages` | Sort by reversed                                    |
+| sort_reversed  | `Bool`                                                       | Reverse sort order                                  |
 | tags__in       | Array of `tag`                                               | At least one tag present                            |
 | tags__all      | Array of `tag`                                               | All tags are present                                |
 | tag            | `tag`                                                        | Exact tag                                           |
@@ -123,42 +123,42 @@ Here is the usage
 ./register username lastName password
 ./login username password
 
-./make_author
-./get_authors
-./edit_author
-./delete_author
+./makeAuthor
+./getAuthors
+./editAuthor
+./deleteAuthor
 
-./get_authors [page]
-./make_author username description
-./edit_author username description
-./delete_author username
+./getAuthors [page]
+./makeAuthor username description
+./editAuthor username description
+./deleteAuthor username
 
-./get_tags [page]
-./create_tag tagname
-./edit_tag tagid tagname
-./delete_tag tagid
+./getTags [page]
+./createTag tagname
+./editTag tagid tagname
+./deleteTag tagid
 
-./get_categories [cid]
-./create_category categoryname [cid]
-./edit_category categoryname cid
-./delete_category cid
+./getCategories [cid]
+./createCategory categoryname [cid]
+./editCategory categoryname cid
+./deleteCategory cid
 
-./get_users [page]
-./create_user username lastName password
-./delete_user username
+./getUsers [page]
+./createUser username lastName password
+./deleteUser username
 
 ./post pid
-./get_post pid
-./get_posts [page]
-./create_post title cid content image images
-./attach_tag tid pid
-./deattach_tag tid pid
-./edit_post pid title cid content image images
-./publish_post pid
-./delete_post pid
+./getPost pid
+./getPosts [page]
+./createPost title cid content image images
+./attachTag tid pid
+./deattachTag tid pid
+./editPost pid title cid content image images
+./publishPost pid
+./deletePost pid
 ./posts
 
-./get_comments pid [page]
-./add_comment pid text
-./delete_comment cid
+./getComments pid [page]
+./addComment pid text
+./deleteComment cid
 ```

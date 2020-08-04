@@ -1,7 +1,8 @@
 {-# LANGUAGE
-  OverloadedStrings
-, QuasiQuotes
-#-}
+    OverloadedStrings
+  , QuasiQuotes
+  #-}
+
 module Comments where
 import           App
 import           Data.Text                      ( Text )
@@ -13,7 +14,7 @@ import qualified Data.Aeson                    as J
 
 commentsPageSize = 20
 
-get_comments (PostId pid) (Page page) = queryPaged
+getComments (PostId pid) (Page page) = queryPaged
   commentsPageSize
   [sql|
     SELECT
@@ -37,7 +38,7 @@ get_comments (PostId pid) (Page page) = queryPaged
   |]
   (pid, limit commentsPageSize, offset commentsPageSize page)
 
-add_comment (UserName user) (PostId pid, Content text) = queryOne
+addComment (UserName user) (PostId pid, Content text) = queryOne
   "INSERT INTO comments (post, username, comment) VALUES (?, ?, ?) RETURNING id"
   (pid, user, text)
   (J.Number . fromInteger)
@@ -47,7 +48,7 @@ newtype CommentId = CommentId Text
 instance Query CommentId where
   parseQuery q = CommentId <$> "cid" .: q
 
-delete_comment (UserName user) (CommentId cid) = execdb
+deleteComment (UserName user) (CommentId cid) = execdb
   "DELETE FROM comments WHERE id = ?"
   [cid]
   (Just $ user <> " deleted comment " <> showText cid)

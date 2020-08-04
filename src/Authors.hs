@@ -1,7 +1,7 @@
 {-# LANGUAGE
-  OverloadedStrings
-, QuasiQuotes
-#-}
+    OverloadedStrings
+  , QuasiQuotes
+  #-}
 
 module Authors where
 
@@ -11,7 +11,7 @@ import           Entities
 
 authorsPageSize = 20
 
-get_authors (UserName _admin) (Page page) = queryPaged
+getAuthors (UserName _admin) (Page page) = queryPaged
   authorsPageSize
   [sql|
     SELECT
@@ -23,17 +23,17 @@ get_authors (UserName _admin) (Page page) = queryPaged
   |]
   (limit authorsPageSize, offset authorsPageSize page)
 
-make_author (UserName admin) (UserName name, Description description) = execdb
+makeAuthor (UserName admin) (UserName name, Description description) = execdb
   "INSERT INTO authors (username, description) VALUES (?, ?)"
   (name, description)
   (Just $ admin <> " promoted " <> name <> " to authors with description \"" <> description <> "\"")
 
-edit_author (UserName admin) (UserName name, Description description) = execdb
+editAuthor (UserName admin) (UserName name, Description description) = execdb
   "UPDATE authors SET description = ? WHERE username = ?"
   (description, name)
   (Just $ admin <> " edited " <> name <> "'s description to \"" <> description <> "\"")
 
-delete_author (UserName admin) (UserName name) = execdb
+deleteAuthor (UserName admin) (UserName name) = execdb
   "DELETE FROM authors WHERE username = ?"
   [name]
   (Just $ admin <> " exiled " <> name <> " from authors guild")

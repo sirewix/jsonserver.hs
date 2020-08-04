@@ -1,7 +1,7 @@
 {-# LANGUAGE
-  OverloadedStrings
-, QuasiQuotes
-#-}
+    OverloadedStrings
+  , QuasiQuotes
+  #-}
 
 module Search(posts) where
 import           App
@@ -78,7 +78,7 @@ posts (mbSort, TagsInAll tags_in tags_all, createdAt, mbAuthor, mbcid, mbtitle, 
         LEFT JOIN tags ON tags.id = tag_post_relations.tag
     |]
 
-orderBy mbSort = " ORDER BY " <> case maybe (Sort ByDate True) id mbSort of
+orderBy mbSort = " ORDER BY " <> case fromMaybe (Sort ByDate True) mbSort of
     Sort ByDate r           -> "date"           <> sort r
     Sort ByAuthor r         -> "authorname"     <> sort r
     Sort ByCategory r       -> "categoryname"   <> sort r
@@ -92,7 +92,7 @@ data CreatedAt =
 instance Query CreatedAt where
     parseQuery q =
             CreatedAt <$> (readT =<< "created_at" .: q)
-        <|> (Just $ CreatedAtRange
+        <|> Just (CreatedAtRange
                 (readT =<< "created_at__gt" .: q)
                 (readT =<< "created_at__lt" .: q))
 
@@ -100,8 +100,8 @@ data TagsInAll = TagsInAll [Int] [Int]
 
 instance Query TagsInAll where
   parseQuery q = Just $ TagsInAll
-    (maybe [] id $ readT =<< ("tags__in" .: q))
-    (let tags  = (maybe [] id $ readT =<< ("tags__all" .: q))
+    (fromMaybe [] $ readT =<< ("tags__in" .: q))
+    (let tags  = fromMaybe [] (readT =<< ("tags__all" .: q))
          mbtag = maybeToList (readT =<< "tag" .: q)
       in tags ++ mbtag)
 
@@ -117,4 +117,4 @@ data SortBy =
 instance Query Sort where
   parseQuery q = Sort
     <$> (readT =<< "sort" .: q)
-    <*> (Just $ maybe False (const True) ("sort_reversed" .:? q))
+    <*> Just (isJust ("sort_reversed" .:? q))

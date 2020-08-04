@@ -1,7 +1,7 @@
 {-# LANGUAGE
-  OverloadedStrings
-, ScopedTypeVariables
-#-}
+    OverloadedStrings
+  , ScopedTypeVariables
+  #-}
 module Auth
   ( Secrets
   , JWTVerification(..)
@@ -64,7 +64,7 @@ instance Monad JWTVerification where
 
 generateJWT :: Integer -> (Bool, Bool, Text) -> (NominalDiffTime, [Signer]) -> Text
 generateJWT _ (_, _, _) (_, []) = error "secrets list must not be empty"
-generateJWT expTime (admin, author, name) (now, (secret : _)) =
+generateJWT expTime (admin, author, name) (now, secret : _) =
   let
     header = mempty { alg = Just HS256 }
     claims = mempty
@@ -114,4 +114,4 @@ login genToken (UserName name, Password password) (log, db) = catchDb log (retur
 
 generateSecret = hmacSecret . pack <$> replicateM 30 randomIO
 
-updateSecrets secrets = modifyMVar_ secrets $ \secrets -> (: (init secrets)) <$> generateSecret
+updateSecrets secrets = modifyMVar_ secrets $ \secrets -> (: init secrets) <$> generateSecret

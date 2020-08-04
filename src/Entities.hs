@@ -1,12 +1,12 @@
 {-# LANGUAGE
-  DuplicateRecordFields
-, OverloadedStrings
-, DeriveAnyClass
-, DeriveGeneric
-, TypeSynonymInstances
-, FlexibleInstances
-, TypeOperators
-#-}
+    DuplicateRecordFields
+  , OverloadedStrings
+  , DeriveAnyClass
+  , DeriveGeneric
+  , TypeSynonymInstances
+  , FlexibleInstances
+  , TypeOperators
+  #-}
 module Entities where
 import           Control.Arrow
 import           Data.Aeson                     ( ToJSON
@@ -84,7 +84,7 @@ instance ToField Entities.Date where
   toField (Date d) = toField d
 
 instance Read Entities.Date where
-  readsPrec d = map (Date *** id) . readsPrec d
+  readsPrec d = map (first Date) . readsPrec d
 
 instance ToJSON Entities.Date where
   toJSON (Date (Finite d)) = J.String $ pack $ showGregorian d
