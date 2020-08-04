@@ -12,6 +12,7 @@ import           Control.Arrow
 import           Data.Aeson                     ( ToJSON
                                                 , (.=)
                                                 )
+import           Data.Char
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -26,19 +27,28 @@ import           GHC.Generics
 import           Misc
 import           Query
 import qualified Data.Aeson                    as J
+import qualified Data.Text                     as T
 
 newtype UserName = UserName Text deriving (Eq, Show)
 newtype LastName = LastName Text
 newtype Password = Password Text
 
 instance Query UserName where
-  parseQuery q = UserName <$> "username" .: q
+  parseQuery q = fmap UserName
+    . filterMaybe (T.all isAlphaNum)
+    . filterMaybe ((\l -> l >= 3 && l <= 20) . T.length)
+    $ ("username" .: q)
 
 instance Query LastName where
-  parseQuery q = LastName <$> "lastname" .: q
+  parseQuery q = fmap LastName
+    . filterMaybe (T.all isAlphaNum)
+    . filterMaybe ((<= 30) . T.length)
+    $ "lastname" .: q
 
 instance Query Password where
-  parseQuery q = Password <$> "password" .: q
+  parseQuery q = fmap Password
+    . filterMaybe ((\l -> l >= 6 && l <= 30) . T.length)
+    $ "password" .: q
 
 newtype Description = Description Text
 instance Query Description where
@@ -92,33 +102,50 @@ instance ToJSON Entities.Date where
 
 newtype AuthorName = AuthorName Text
 instance Query AuthorName where
-  parseQuery q = AuthorName <$> "author_name" .: q
+  parseQuery q = fmap AuthorName
+    . filterMaybe (T.all isAlphaNum)
+    . filterMaybe ((\l -> l >= 3 && l <= 20) . T.length)
+    $ ("author_name" .: q)
 
 newtype Title = Title Text
 instance Query Title where
-  parseQuery q = Title <$> "title" .: q
+  parseQuery q = fmap Title
+    . filterMaybe ((<= 50) . T.length)
+    . filterMaybe (not . T.null)
+    $ "title" .: q
+
 instance ToField Title where
   toField (Title imgs) = toField imgs
 
 newtype Search = Search Text
 instance Query Search where
-  parseQuery q = Search <$> "search" .: q
+  parseQuery q = fmap Search
+    . filterMaybe (not . T.null)
+    $ "search" .: q
 
 newtype Content = Content Text
 instance Query Content where
-  parseQuery q = Content <$> "text" .: q
+  parseQuery q = fmap Content
+    . filterMaybe (not . T.null)
+    $ "text" .: q
+
 instance ToField Content where
   toField (Content imgs) = toField imgs
 
 newtype Image = Image Text
 instance Query Image where
-  parseQuery q = Image <$> "image" .: q
+  parseQuery q = fmap Image
+    . filterMaybe (not . T.null)
+    $ "image" .: q
+
 instance ToField Image where
   toField (Image imgs) = toField imgs
 
 newtype Images = Images [Text]
 instance Query Images where
-  parseQuery q = Images <$> (readT =<< "images" .: q)
+  parseQuery q = fmap Images
+    . filterMaybe (all $ not . T.null)
+    $ (readT =<< "images" .: q)
 
 newtype PostId = PostId Int
 

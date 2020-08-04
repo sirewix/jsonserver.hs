@@ -12,3 +12,9 @@ readT = fmap fst . listToMaybe . reads . unpack
 (?) True  x _ = x
 (?) False _ y = y
 infixr 1 ?
+
+filterMaybe :: (a -> Bool) -> Maybe a -> Maybe a
+filterMaybe pfn mvalue = case mvalue of
+  Just a | pfn a     -> Nothing
+         | otherwise -> mvalue
+  Nothing -> Nothing

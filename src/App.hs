@@ -46,7 +46,6 @@ defaultDbHandlers log =
         >> return InternalError
     )
   , Handler (\(e :: ResultError) -> log Error (pack $ showResultError e) >> return InternalError)
-  -- , Handler (\(_ :: PatternMatchFail) -> return BadRequest)
   ]
 
 showResultError (Incompatible     sqlType _ _     hType msg) = msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
