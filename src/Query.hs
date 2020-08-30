@@ -6,9 +6,9 @@ module Query
   )
 where
 
-import           Data.Text.Encoding
-import           Data.Text
-import           Data.ByteString
+import           Data.Text.Encoding             ( decodeUtf8 )
+import           Data.Text                      ( Text )
+import           Data.ByteString                ( ByteString )
 import           Control.Monad                  ( join )
 
 type QueryParser a = [(ByteString, Maybe ByteString)] -> Maybe a

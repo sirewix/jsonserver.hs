@@ -1,10 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Categories where
-import           App
+import           App                            ( Endpoint
+                                                , AppResponse(..)
+                                                , catchDb
+                                                , execdb
+                                                , queryOne
+                                                )
 import           Database.PostgreSQL.Simple     ( query )
-import           Entities
-import           Misc
+import           Entities                       ( UserName(..)
+                                                , Category(..)
+                                                , CategoryId(..)
+                                                , Name(..)
+                                                )
+import           Misc                           ( showText )
 import qualified Data.Aeson                    as J
 
 getCategories :: Maybe CategoryId -> Endpoint

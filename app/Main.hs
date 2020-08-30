@@ -1,20 +1,37 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
-import           App
-import           Auth
-import           Config
-import           Control.Concurrent
-import           Control.Monad
-import           Data.Functor
-import           Data.Yaml
-import           Database.PostgreSQL.Simple
-import           Entry
-import           Logger
-import           Misc
+import           App                            ( dbrefresh )
+import           Auth                           ( generateSecret
+                                                , updateSecrets
+                                                )
+import           Config                         ( Config(..)
+                                                , DBConfig(..)
+                                                )
+import           Control.Concurrent             ( newMVar
+                                                , forkIO
+                                                , threadDelay
+                                                )
+import           Control.Monad                  ( forever
+                                                , forM_
+                                                , replicateM
+                                                )
+import           Data.Functor                   ( (<&>)
+                                                , void
+                                                )
+import           Data.Yaml                      ( decodeThrow )
+import           Database.PostgreSQL.Simple     ( connect )
+import           Entry                          ( app )
+import           Logger                         ( newLogger
+                                                , Priority(..)
+                                                )
+import           Misc                           ( showText )
 import           Network.Wai.Handler.Warp       ( run )
-import           System.Environment
-import           System.IO
+import           System.Environment             ( getArgs )
+import           System.IO                      ( stdout
+                                                , openFile
+                                                , IOMode(..)
+                                                )
 import qualified Data.ByteString               as B
 
 main :: IO ()

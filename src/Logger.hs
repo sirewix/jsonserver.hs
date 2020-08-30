@@ -10,14 +10,16 @@ module Logger
   )
 where
 
-import           Control.Concurrent
-import           Control.Monad
+import           Control.Concurrent             ( MVar
+                                                , withMVar
+                                                )
+import           Control.Monad                  ( when )
 import           Data.Aeson                     ( FromJSON )
 import           Data.Text                      ( Text )
 import           Data.Text.IO                   ( hPutStrLn )
-import           Data.Time.Clock
-import           GHC.Generics
-import           Misc
+import           Data.Time.Clock                ( getCurrentTime )
+import           GHC.Generics                   ( Generic )
+import           Misc                           ( showText )
 import qualified System.IO
 
 data Priority

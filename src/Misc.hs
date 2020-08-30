@@ -1,12 +1,12 @@
 module Misc where
 import           Data.Text                      ( Text, pack, unpack)
-import           Data.Maybe
+import           Text.Read                      ( readMaybe )
 
 showText :: Show a => a -> Text
 showText = pack . show
 
 readT :: Read a => Text -> Maybe a
-readT = fmap fst . listToMaybe . reads . unpack
+readT = readMaybe . unpack
 
 (?) :: Bool -> a -> a -> a
 (?) True  x _ = x

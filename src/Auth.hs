@@ -15,21 +15,45 @@ module Auth
   )
 where
 
-import           App
-import           Control.Concurrent.MVar
-import           Control.Monad
+import           App                            ( AppResponse(..)
+                                                , execdb
+                                                , catchDb
+                                                )
+import           Control.Concurrent.MVar        ( MVar
+                                                , readMVar
+                                                , modifyMVar_
+                                                )
+import           Control.Monad                  ( replicateM )
 import           Data.Aeson                     ( (.=) )
-import           Data.Foldable
+import           Data.Foldable                  ( asum )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
-import           Data.Time.Clock
-import           Data.Time.Clock.POSIX
-import           Database.PostgreSQL.Simple
-import           Logger
-import           Entities
-import           System.Random
-import           Web.JWT
+import           Data.Time.Clock                ( NominalDiffTime )
+import           Data.Time.Clock.POSIX          ( getPOSIXTime )
+import           Database.PostgreSQL.Simple     ( Only(..)
+                                                , query
+                                                )
+import           Logger                         ( Priority(..) )
+import           Entities                       ( LastName(..)
+                                                , UserName(..)
+                                                , Password(..)
+                                                )
+import           System.Random                  ( randomIO )
+import           Web.JWT                        ( Algorithm(..)
+                                                , ClaimsMap(..)
+                                                , JOSEHeader(..)
+                                                , JWTClaimsSet(..)
+                                                , Signer
+                                                , claims
+                                                , decodeAndVerifySignature
+                                                , encodeSigned
+                                                , hmacSecret
+                                                , numericDate
+                                                , secondsSinceEpoch
+                                                , stringOrURI
+                                                , stringOrURIToText
+                                                )
 import qualified Data.Aeson                    as J
 import qualified Data.Aeson.Types              as J
 import qualified Data.Map.Strict               as Map

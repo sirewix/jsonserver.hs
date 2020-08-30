@@ -4,21 +4,44 @@
   #-}
 
 module Search(posts) where
-import           App
-import           Control.Applicative
+import           App                            ( Endpoint
+                                                , AppResponse(..)
+                                                , catchDb
+                                                , limit
+                                                , offset
+                                                , paginate
+                                                )
+import           Control.Applicative            ( (<|>) )
 import           Data.ByteString                ( intercalate )
-import           Data.Maybe
-import           Data.Text.Encoding
+import           Data.Maybe                     ( isNothing
+                                                , isJust
+                                                , fromMaybe
+                                                , maybeToList
+                                                )
+import           Data.Text.Encoding             ( decodeUtf8 )
 import           Database.PostgreSQL.Simple     ( query
                                                 , formatQuery
                                                 )
 import           Database.PostgreSQL.Simple.SqlQQ
+                                                ( sql )
 import           Database.PostgreSQL.Simple.Types
                                                 ( PGArray(..) )
-import           Entities
-import           Logger
-import           Misc
-import           Query
+import           Entities                       ( Date
+                                                , AuthorName(..)
+                                                , Content(..)
+                                                , Search(..)
+                                                , Title(..)
+                                                , CategoryId(..)
+                                                , Page(..)
+                                                )
+import           Logger                         ( Priority(..) )
+import           Misc                           ( (?)
+                                                , readT
+                                                )
+import           Query                          ( (.:)
+                                                , (.:?)
+                                                , Query(..)
+                                                )
 import qualified Data.Aeson                    as J
 import qualified Database.PostgreSQL.Simple.Types
                                                as P

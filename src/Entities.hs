@@ -8,26 +8,31 @@
   , TypeOperators
   #-}
 module Entities where
-import           Control.Arrow
+import           Control.Arrow                  ( first )
 import           Data.Aeson                     ( ToJSON
                                                 , (.=)
                                                 )
-import           Data.Char
+import           Data.Char                      ( isAlphaNum )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
-import           Data.Time.Calendar
-import           Database.PostgreSQL.Simple
-                                         hiding ( Query )
-import           Database.PostgreSQL.Simple.Time as T
+import           Data.Time.Calendar             ( showGregorian )
+import           Database.PostgreSQL.Simple     ( FromRow )
 import           Database.PostgreSQL.Simple.ToField
+                                                ( ToField(..) )
 import           Database.PostgreSQL.Simple.Types
                                                 ( PGArray(..) )
-import           GHC.Generics
-import           Misc
-import           Query
+import           GHC.Generics                   ( Generic )
+import           Misc                           ( readT
+                                                , filterMaybe
+                                                )
+import           Query                          ( (.:)
+                                                , Query(..)
+                                                )
 import qualified Data.Aeson                    as J
 import qualified Data.Text                     as T
+import qualified Database.PostgreSQL.Simple.Time
+                                               as T
 
 newtype UserName = UserName Text deriving (Eq, Show)
 newtype LastName = LastName Text
@@ -97,7 +102,7 @@ instance Read Entities.Date where
   readsPrec d = map (first Date) . readsPrec d
 
 instance ToJSON Entities.Date where
-  toJSON (Date (Finite d)) = J.String $ pack $ showGregorian d
+  toJSON (Date (T.Finite d)) = J.String $ pack $ showGregorian d
   toJSON _                 = J.Null
 
 newtype AuthorName = AuthorName Text
@@ -144,7 +149,7 @@ instance ToField Image where
 newtype Images = Images [Text]
 instance Query Images where
   parseQuery q = fmap Images
-    . filterMaybe (all $ not . T.null)
+    . filterMaybe (not . any T.null)
     $ (readT =<< "images" .: q)
 
 newtype PostId = PostId Int

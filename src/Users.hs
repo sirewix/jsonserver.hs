@@ -4,10 +4,17 @@
   #-}
 
 module Users where
-import           App
-import           Entities
+import           App                            ( limit
+                                                , offset
+                                                , execdb
+                                                , queryPaged
+                                                )
+import           Entities                       ( Page(..)
+                                                , UserName(..)
+                                                )
 import           Auth                           ( register )
 import           Database.PostgreSQL.Simple.SqlQQ
+                                                ( sql )
 
 usersPageSize = 20
 

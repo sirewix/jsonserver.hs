@@ -3,20 +3,32 @@
   , PartialTypeSignatures
   #-}
 module Entry where
-import           App
-import           Auth
-import           Authors
-import           Categories
-import           Comments
-import           Config
+import           App                            ( Endpoint
+                                                , AppResponse(..)
+                                                )
+import           Auth                           ( Secrets
+                                                , JWTVerification(..)
+                                                , generateJWT
+                                                , login
+                                                , register
+                                                , runJWT
+                                                , verifyJWT
+                                                )
+import           Config                         ( Config(..) )
 import           Data.Aeson                     ( (.=) )
 import           Data.Text                      ( Text )
-import           Data.Text.Encoding
-import           Database.PostgreSQL.Simple
-                                         hiding ( Query )
-import           Entities
-import           Logger
-import           Misc
+import           Data.Text.Encoding             ( decodeUtf8 )
+import           Database.PostgreSQL.Simple     ( Connection )
+import           Entities                       ( UserName(..)
+                                                , Token(..)
+                                                , PostId(..)
+                                                )
+import           Logger                         ( Logger
+                                                , Priority(..)
+                                                )
+import           Misc                           ( showText
+                                                , readT
+                                                )
 import           Network.HTTP.Types             ( Status(..)
                                                 , status200
                                                 , status400
@@ -24,13 +36,21 @@ import           Network.HTTP.Types             ( Status(..)
                                                 , status404
                                                 , status500
                                                 )
-import           Network.Wai
-import           Posts
-import           Query
-import           Search
-import           Tags
-import           Users
+import           Network.Wai                    ( Application
+                                                , ResponseReceived
+                                                , pathInfo
+                                                , queryString
+                                                , responseLBS
+                                                )
+import           Query                          ( Query(..) )
+import qualified Authors
+import qualified Categories
+import qualified Comments
 import qualified Data.Aeson                    as J
+import qualified Posts
+import qualified Search
+import qualified Tags
+import qualified Users
 
 app :: Config -> Secrets -> (Logger, Connection) -> Application
 app config secrets env@(log, _) req respond = do
@@ -39,42 +59,42 @@ app config secrets env@(log, _) req respond = do
     ["register"       ]       -> public register
     ["login"          ]       -> public (login $ \arg -> generateJWT (toInteger $ secrets_update_interval config * 60) arg <$> runJWT secrets)
 
-    ["makeAuthor"    ]       -> admin makeAuthor
-    ["getAuthors"    ]       -> admin getAuthors
-    ["editAuthor"    ]       -> admin editAuthor
-    ["deleteAuthor"  ]       -> admin deleteAuthor
+    ["makeAuthor"    ]       -> admin Authors.makeAuthor
+    ["getAuthors"    ]       -> admin Authors.getAuthors
+    ["editAuthor"    ]       -> admin Authors.editAuthor
+    ["deleteAuthor"  ]       -> admin Authors.deleteAuthor
 
-    ["getTags"       ]       -> public getTags
-    ["createTag"     ]       -> admin createTag
-    ["editTag"       ]       -> admin editTag
-    ["deleteTag"     ]       -> admin deleteTag
+    ["getTags"       ]       -> public Tags.getTags
+    ["createTag"     ]       -> admin Tags.createTag
+    ["editTag"       ]       -> admin Tags.editTag
+    ["deleteTag"     ]       -> admin Tags.deleteTag
 
-    ["getCategories" ]       -> public getCategories
-    ["createCategory"]       -> admin createCategory
-    ["editCategory"  ]       -> admin editCategory
-    ["deleteCategory"]       -> admin deleteCategory
+    ["getCategories" ]       -> public Categories.getCategories
+    ["createCategory"]       -> admin Categories.createCategory
+    ["editCategory"  ]       -> admin Categories.editCategory
+    ["deleteCategory"]       -> admin Categories.deleteCategory
 
-    ["getUsers"      ]       -> public getUsers
-    ["createUser"    ]       -> admin createUser
-    ["deleteUser"    ]       -> admin deleteUser
+    ["getUsers"      ]       -> public Users.getUsers
+    ["createUser"    ]       -> admin Users.createUser
+    ["deleteUser"    ]       -> admin Users.deleteUser
 
-    ["getPost"       ]       -> author getPost
-    ["getPosts"      ]       -> author getPosts
-    ["createPost"    ]       -> author createPost
-    ["editPost"      ]       -> author editPost
-    ["publishPost"   ]       -> author publishPost
-    ["deletePost"    ]       -> author deletePost
+    ["getPost"       ]       -> author Posts.getPost
+    ["getPosts"      ]       -> author Posts.getPosts
+    ["createPost"    ]       -> author Posts.createPost
+    ["editPost"      ]       -> author Posts.editPost
+    ["publishPost"   ]       -> author Posts.publishPost
+    ["deletePost"    ]       -> author Posts.deletePost
 
-    ["attachTag"     ]       -> author attachTag
-    ["deattachTag"   ]       -> author deattachTag
+    ["attachTag"     ]       -> author Posts.attachTag
+    ["deattachTag"   ]       -> author Posts.deattachTag
 
     ["post"           ]       -> respond $ toHttp BadRequest
-    ["post", pid]             -> path public pid (post . PostId)
-    ["post", pid, "comments"] -> path public pid (getComments . PostId)
-    ["posts"         ]        -> public posts
+    ["post", pid]             -> path public pid (Posts.post . PostId)
+    ["post", pid, "comments"] -> path public pid (Comments.getComments . PostId)
+    ["posts"         ]        -> public Search.posts
 
-    ["addComment"   ]        -> user addComment
-    ["deleteComment"]        -> user deleteComment
+    ["addComment"   ]        -> user Comments.addComment
+    ["deleteComment"]        -> user Comments.deleteComment
 
     _                         -> respond $ toHttp NotFound
  where

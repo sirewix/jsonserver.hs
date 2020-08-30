@@ -1,8 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Config where
-import           Data.Yaml
-import           Database.PostgreSQL.Simple
-import           Logger
+import           Data.Yaml                      ( (.!=)
+                                                , (.:?)
+                                                , FromJSON(..)
+                                                , object
+                                                , withObject
+                                                )
+import           Database.PostgreSQL.Simple     ( ConnectInfo(..) )
+import           Logger                         ( Priority(..) )
 import           Network.Wai.Handler.Warp       ( Port )
 
 newtype DBConfig = DBConfig { unDBConfig :: ConnectInfo }

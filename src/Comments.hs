@@ -4,12 +4,24 @@
   #-}
 
 module Comments where
-import           App
+import           App                            ( limit
+                                                , offset
+                                                , execdb
+                                                , queryOne
+                                                , queryPaged
+                                                )
 import           Data.Text                      ( Text )
 import           Database.PostgreSQL.Simple.SqlQQ
-import           Entities
-import           Misc
-import           Query
+                                                ( sql )
+import           Entities                       ( Page(..)
+                                                , PostId(..)
+                                                , UserName(..)
+                                                , Content(..)
+                                                )
+import           Misc                           ( showText )
+import           Query                          ( (.:)
+                                                , Query(..)
+                                                )
 import qualified Data.Aeson                    as J
 
 commentsPageSize = 20

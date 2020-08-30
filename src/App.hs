@@ -17,15 +17,26 @@ module App
   )
 where
 
-import           Control.Exception
-import           Control.Monad
+import           Control.Exception              ( Handler(..)
+                                                , catches
+                                                )
+import           Control.Monad                  ( forM_ )
 import           Data.Aeson                     ( (.=) )
 import           Data.Text                      ( pack )
-import           Data.Text.Encoding
+import           Data.Text.Encoding             ( decodeUtf8 )
 import           Data.Yaml                      ( array )
-import           Database.PostgreSQL.Simple
-                                         hiding ( Query )
-import           Logger
+import           Database.PostgreSQL.Simple     ( Connection
+                                                , FormatError(..)
+                                                , Only(..)
+                                                , QueryError(..)
+                                                , ResultError(..)
+                                                , SqlError(..)
+                                                , execute
+                                                , query
+                                                )
+import           Logger                         ( Logger
+                                                , Priority(..)
+                                                )
 import qualified Data.Aeson                    as J
 
 data AppResponse =
