@@ -1,140 +1,159 @@
 {-# LANGUAGE
     OverloadedStrings
+  , FlexibleContexts
   , PartialTypeSignatures
+  , TypeApplications
   #-}
+
 module Entry where
-import           App                            ( Endpoint
-                                                , AppResponse(..)
-                                                )
-import           Auth                           ( Secrets
+
+import           App.Response                   ( AppResponse(..))
+import           App.Prototype.App              ( HasEnv(..) )
+import           App.Prototype.Auth             ( Secrets
                                                 , JWTVerification(..)
-                                                , generateJWT
-                                                , login
-                                                , register
+                                                )
+import           App.Prototype.Database         ( DbAccess(..) )
+import           App.Prototype.Log              ( HasLog(..)
+                                                , Priority(..)
+                                                )
+import           App.Implementation.Auth        ( generateJWT
                                                 , runJWT
                                                 , verifyJWT
                                                 )
 import           Config                         ( Config(..) )
-import           Data.Aeson                     ( (.=) )
+import           Control.Monad                  ( void )
+import           Control.Monad.Except           ( MonadError(..) )
+import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Text                      ( Text )
-import           Data.Text.Encoding             ( decodeUtf8 )
-import           Database.PostgreSQL.Simple     ( Connection )
 import           Entities                       ( UserName(..)
                                                 , Token(..)
                                                 , PostId(..)
                                                 )
-import           Logger                         ( Logger
-                                                , Priority(..)
-                                                )
 import           Misc                           ( showText
                                                 , readT
                                                 )
-import           Network.HTTP.Types             ( Status(..)
-                                                , status200
-                                                , status400
-                                                , status401
-                                                , status404
-                                                , status500
-                                                )
-import           Network.Wai                    ( Application
-                                                , ResponseReceived
-                                                , pathInfo
-                                                , queryString
-                                                , responseLBS
-                                                )
-import           Query                          ( Query(..) )
-import qualified Authors
-import qualified Categories
-import qualified Comments
-import qualified Data.Aeson                    as J
-import qualified Posts
-import qualified Search
-import qualified Tags
-import qualified Users
+import           Network.Wai                    ( Request(..) )
+import           FromQuery                      ( FromQuery(..) )
+import qualified API.Login                     as Login
+import qualified API.Authors                   as Authors
+import qualified API.Categories                as Categories
+import qualified API.Comments                  as Comments
+import qualified API.Posts                     as Posts
+import qualified API.Search                    as Search
+import qualified API.Tags                      as Tags
+import qualified API.Users                     as Users
 
-app :: Config -> Secrets -> (Logger, Connection) -> Application
-app config secrets env@(log, _) req respond = do
-  log Debug $ showText req
+entry
+  :: ( HasEnv Config m
+     , HasEnv Secrets m
+     , HasLog m
+     , DbAccess m
+     , MonadIO m
+     , MonadError Text m
+     )
+  => Request
+  -> m AppResponse
+entry req = do
+  config <- getEnv @Config
+  log' Debug $ showText req
   case pathInfo req of
-    ["register"       ]       -> public register
-    ["login"          ]       -> public (login $ \arg -> generateJWT (toInteger $ secrets_update_interval config * 60) arg <$> runJWT secrets)
+    ["register"      ]        -> public Login.register
+    ["login"         ]        -> public (Login.login $ \arg -> generateJWT (secrets_update_interval config * 60) arg <$> runJWT)
 
-    ["makeAuthor"    ]       -> admin Authors.makeAuthor
-    ["getAuthors"    ]       -> admin Authors.getAuthors
-    ["editAuthor"    ]       -> admin Authors.editAuthor
-    ["deleteAuthor"  ]       -> admin Authors.deleteAuthor
+    ["makeAuthor"    ]        -> admin Authors.makeAuthor
+    ["getAuthors"    ]        -> admin Authors.getAuthors
+    ["editAuthor"    ]        -> admin Authors.editAuthor
+    ["deleteAuthor"  ]        -> admin Authors.deleteAuthor
 
-    ["getTags"       ]       -> public Tags.getTags
-    ["createTag"     ]       -> admin Tags.createTag
-    ["editTag"       ]       -> admin Tags.editTag
-    ["deleteTag"     ]       -> admin Tags.deleteTag
+    ["getTags"       ]        -> public Tags.getTags
+    ["createTag"     ]        -> admin Tags.createTag
+    ["editTag"       ]        -> admin Tags.editTag
+    ["deleteTag"     ]        -> admin Tags.deleteTag
 
-    ["getCategories" ]       -> public Categories.getCategories
-    ["createCategory"]       -> admin Categories.createCategory
-    ["editCategory"  ]       -> admin Categories.editCategory
-    ["deleteCategory"]       -> admin Categories.deleteCategory
+    ["getCategories" ]        -> public Categories.getCategories
+    ["createCategory"]        -> admin Categories.createCategory
+    ["editCategory"  ]        -> admin Categories.editCategory
+    ["deleteCategory"]        -> admin Categories.deleteCategory
 
-    ["getUsers"      ]       -> public Users.getUsers
-    ["createUser"    ]       -> admin Users.createUser
-    ["deleteUser"    ]       -> admin Users.deleteUser
+    ["getUsers"      ]        -> public Users.getUsers
+    ["createUser"    ]        -> admin Users.createUser
+    ["deleteUser"    ]        -> admin Users.deleteUser
 
-    ["getPost"       ]       -> author Posts.getPost
-    ["getPosts"      ]       -> author Posts.getPosts
-    ["createPost"    ]       -> author Posts.createPost
-    ["editPost"      ]       -> author Posts.editPost
-    ["publishPost"   ]       -> author Posts.publishPost
-    ["deletePost"    ]       -> author Posts.deletePost
+    ["getPost"       ]        -> author Posts.getPost
+    ["getPosts"      ]        -> author Posts.getPosts
+    ["createPost"    ]        -> author Posts.createPost
+    ["editPost"      ]        -> author Posts.editPost
+    ["publishPost"   ]        -> author Posts.publishPost
+    ["deletePost"    ]        -> author Posts.deletePost
 
-    ["attachTag"     ]       -> author Posts.attachTag
-    ["deattachTag"   ]       -> author Posts.deattachTag
+    ["attachTag"     ]        -> author Posts.attachTag
+    ["deattachTag"   ]        -> author Posts.deattachTag
 
-    ["post"           ]       -> respond $ toHttp BadRequest
-    ["post", pid]             -> path public pid (Posts.post . PostId)
+    ["post"          ]        -> return BadRequest
+    ["post", pid     ]        -> path public pid (Posts.post . PostId)
     ["post", pid, "comments"] -> path public pid (Comments.getComments . PostId)
     ["posts"         ]        -> public Search.posts
 
-    ["addComment"   ]        -> user Comments.addComment
-    ["deleteComment"]        -> user Comments.deleteComment
+    ["addComment"    ]        -> user Comments.addComment
+    ["deleteComment" ]        -> user Comments.deleteComment
 
-    _                         -> respond $ toHttp NotFound
+    _                         -> return NotFound
  where
-  admin, author, user :: Query arg => (UserName -> arg -> Endpoint) -> IO ResponseReceived
+  admin, author, user
+    :: ( FromQuery q
+       , HasEnv Config m
+       , HasEnv Secrets m
+       , HasLog m
+       , DbAccess m
+       , MonadIO m
+       , MonadError Text m
+       )
+    => (UserName -> q -> m AppResponse) -> m AppResponse
   admin  = needToken (Just "admin")
   author = needToken (Just "author")
   user   = needToken Nothing
 
-  needToken :: Query arg => Maybe Text -> (UserName -> arg -> Endpoint) -> IO ResponseReceived
-  needToken claim f = respond . toHttp =<< case parseQuery (queryString req) of
-    Just (Just (Token token), arg) -> do
-      jwt <- verifyJWT claim token <$> runJWT secrets
+  needToken
+    :: ( FromQuery q
+       , HasEnv Config m
+       , HasEnv Secrets m
+       , HasLog m
+       , DbAccess m
+       , Monad m
+       , MonadIO m
+       , MonadError Text m
+       )
+    => Maybe Text
+    -> (UserName -> q -> m AppResponse)
+    -> m AppResponse
+  needToken claim f = case parseQuery (queryString req) of
+    Just (Just (Token token), q) -> do
+      jwt <- verifyJWT claim token <$> runJWT
       case jwt of
-        JWTOk username -> f username arg env
+        JWTOk username -> f username q
         JWTExp         -> return TokenExpired
         JWTReject      -> return NotFound
-    Just (Nothing, arg) -> if backdoor config
-                              then f (UserName "admin") arg env
-                              else return NotFound
-    Nothing             -> return NotFound
+    Just (Nothing, q) -> getEnv >>= \config ->
+      if backdoor config
+         then f (UserName "admin") q
+         else return NotFound
+    Nothing -> return NotFound
 
-  path which x f = maybe (respond $ toHttp BadRequest) (which . f) (readT x)
+  path which x f = maybe (return BadRequest) (which . f) (readT x)
 
-  public :: Query q => (q -> Endpoint) -> IO ResponseReceived
-  public f = respond . toHttp =<< case parseQuery (queryString req) of
-    Just q  -> f q env
-    Nothing -> return BadRequest
+  public
+    :: ( FromQuery q
+       , HasEnv Config m
+       , HasEnv Secrets m
+       , HasLog m
+       , DbAccess m
+       , Monad m
+       , MonadIO m
+       , MonadError Text m
+       )
+    => (q -> m AppResponse)
+    -> m AppResponse
+  public f = maybe (return BadRequest) f (parseQuery $ queryString req)
 
-  toHttp res = case res of
-    AppOk res     -> ok res
-    BadRequest    -> err status400
-    InternalError -> err status500
-    AccessDenied  -> err status401
-    NotFound      -> err status404
-    TokenExpired  -> err $ Status { statusCode = 700, statusMessage = "Token expired" }
-
-  json status x = responseLBS status [("Content-Type", "application/json")] . J.encode . J.object $ x
-
-  ok x = json status200 ["ok" .= True, "response" .= x]
-
-  err status =
-    json status ["ok" .= False, "code" .= statusCode status, "error" .= decodeUtf8 (statusMessage status)]
-
+dbrefresh :: (Functor m, DbAccess m) => m ()
+dbrefresh = void $ execute "REFRESH MATERIALIZED VIEW posts_view;" ()

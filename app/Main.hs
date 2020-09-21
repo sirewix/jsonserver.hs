@@ -1,10 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
-import           App                            ( dbrefresh )
-import           Auth                           ( generateSecret
+import           App                            ( app )
+import           App.Implementation.App         ( Env(..)
+                                                , runLoggedApp
+                                                )
+import           App.Implementation.Auth        ( generateSecret
                                                 , updateSecrets
                                                 )
+import           App.Implementation.Log         ( LogEnv(..)
+                                                , hlog
+                                                )
+import           App.Implementation.Database    ( DbEnv(..) )
+import           App.Prototype.Log              ( Priority(..) )
 import           Config                         ( Config(..)
                                                 , DBConfig(..)
                                                 )
@@ -16,14 +24,11 @@ import           Control.Monad                  ( forever
                                                 , forM_
                                                 , replicateM
                                                 )
-import           Data.Functor                   ( (<&>)
-                                                , void
-                                                )
+import           Data.Functor                   ( void )
 import           Data.Yaml                      ( decodeThrow )
 import           Database.PostgreSQL.Simple     ( connect )
-import           Entry                          ( app )
-import           Logger                         ( newLogger
-                                                , Priority(..)
+import           Entry                          ( entry
+                                                , dbrefresh
                                                 )
 import           Misc                           ( showText )
 import           Network.Wai.Handler.Warp       ( run )
@@ -40,10 +45,11 @@ main = do
   configContents <- if null args then return "{}" else B.readFile (head args)
 
   config         <- decodeThrow configContents
-  hlog           <- maybe (pure stdout) (`openFile` WriteMode) (log_file config)
-  log            <- newMVar hlog <&> \out -> newLogger out (log_level config)
+  logFileHandler <- maybe (pure stdout) (`openFile` WriteMode) (log_file config)
+  logHandler <- newMVar logFileHandler
+  let log = curry . hlog $ LogEnv (log_level config) logHandler
 
-  db             <- connect (unDBConfig $ database config)
+  conn           <- connect (unDBConfig $ database config)
   log Info $ "Starting server at http://localhost:" <> showText (port config)
   if backdoor config
     then log Warning "Backdoor is on, all token verification is off"
@@ -52,19 +58,25 @@ main = do
   keys    <- replicateM (number_of_secrets config) generateSecret
   secrets <- newMVar keys
 
+  let env = Env
+        (LogEnv (log_level config) logHandler)
+        (DbEnv conn)
+        secrets
+        config
+
   let schedule ms msg action = void . forkIO . forever $ do
         threadDelay (1000 * ms)
         forM_ msg (log Info)
         action
 
-  schedule (1000 * 60 * secrets_update_interval config)
+  schedule (fromInteger $ 1000 * 60 * secrets_update_interval config)
            (Just "Updating keys")
            (updateSecrets secrets)
 
   case db_refresh_interval config of
     Nothing -> log Warning
       "Database refreshing is off, make sure the database is being refreshed somehow"
-    Just interval -> schedule interval Nothing (dbrefresh db)
+    Just interval -> schedule interval Nothing $ runLoggedApp dbrefresh env ()
 
-  run (port config) (app config secrets (log, db))
+  run (port config) (app entry env)
   log Info "Stopping"

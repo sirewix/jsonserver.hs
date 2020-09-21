@@ -1,26 +1,26 @@
 {-# LANGUAGE
     OverloadedStrings
+  , FlexibleContexts
   , QuasiQuotes
   #-}
 
-module Comments where
-import           App                            ( limit
+module API.Comments where
+import           App.Prototype.Database         ( execOne
+                                                , limit
                                                 , offset
-                                                , execdb
                                                 , queryOne
                                                 , queryPaged
+                                                , sql
                                                 )
 import           Data.Text                      ( Text )
-import           Database.PostgreSQL.Simple.SqlQQ
-                                                ( sql )
 import           Entities                       ( Page(..)
                                                 , PostId(..)
                                                 , UserName(..)
                                                 , Content(..)
                                                 )
 import           Misc                           ( showText )
-import           Query                          ( (.:)
-                                                , Query(..)
+import           FromQuery                      ( (.:)
+                                                , FromQuery(..)
                                                 )
 import qualified Data.Aeson                    as J
 
@@ -57,10 +57,10 @@ addComment (UserName user) (PostId pid, Content text) = queryOne
   (Just $ \q -> user <> " added comment " <> showText q <> " to post " <> showText pid)
 
 newtype CommentId = CommentId Text
-instance Query CommentId where
+instance FromQuery CommentId where
   parseQuery q = CommentId <$> "cid" .: q
 
-deleteComment (UserName user) (CommentId cid) = execdb
+deleteComment (UserName user) (CommentId cid) = execOne
   "DELETE FROM comments WHERE id = ?"
   [cid]
   (Just $ user <> " deleted comment " <> showText cid)

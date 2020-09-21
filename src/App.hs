@@ -1,104 +1,51 @@
-{-# LANGUAGE
-    OverloadedStrings
-  , ScopedTypeVariables
-  #-}
-module App
-  ( AppResponse(..)
-  , Endpoint
-  , catchDb
-  , defaultDbHandlers
-  , execdb
-  , limit
-  , offset
-  , paginate
-  , queryOne
-  , queryPaged
-  , dbrefresh
-  )
-where
+{-# LANGUAGE OverloadedStrings #-}
 
-import           Control.Exception              ( Handler(..)
-                                                , catches
+module App where
+
+import           App.Response                   ( AppResponse(..) )
+import           App.Implementation.App         ( App
+                                                , Env
+                                                , runLoggedApp
                                                 )
-import           Control.Monad                  ( forM_ )
 import           Data.Aeson                     ( (.=) )
-import           Data.Text                      ( pack )
 import           Data.Text.Encoding             ( decodeUtf8 )
-import           Data.Yaml                      ( array )
-import           Database.PostgreSQL.Simple     ( Connection
-                                                , FormatError(..)
-                                                , Only(..)
-                                                , QueryError(..)
-                                                , ResultError(..)
-                                                , SqlError(..)
-                                                , execute
-                                                , query
+import           Network.HTTP.Types             ( Status(..)
+                                                , status200
+                                                , status400
+                                                , status401
+                                                , status404
+                                                , status500
                                                 )
-import           Logger                         ( Logger
-                                                , Priority(..)
+import           Network.Wai                    ( Application
+                                                , Request
+                                                , responseLBS
                                                 )
 import qualified Data.Aeson                    as J
 
-data AppResponse =
-    AppOk J.Value
-  | BadRequest
-  | InternalError
-  | AccessDenied
-  | TokenExpired
-  | NotFound
+app
+  :: (Request -> App AppResponse)
+  -> Env
+  -> Application
+app entry env req respond = respond . toHttp =<< runLoggedApp (entry req) env InternalError
+ where
+  toHttp res = case res of
+    AppOk res     -> ok res
+    BadRequest    -> err status400
+    InternalError -> err status500
+    AccessDenied  -> err status401
+    NotFound      -> err status404
+    TokenExpired  -> err $ Status { statusCode = 700, statusMessage = "Token expired" }
 
-defaultDbHandlers log =
-  [ Handler (\(e :: FormatError) -> log Error (pack $ fmtMessage e) >> return InternalError)
-  , Handler
-    (\(e :: SqlError) ->
-      log
-          Error
-          (decodeUtf8 $ sqlErrorMsg e <> " (" <> ") (" <> sqlErrorDetail e <> ") (" <> sqlErrorHint e <> ")")
-        >> return InternalError
-    )
-  , Handler (\(e :: ResultError) -> log Error (pack $ showResultError e) >> return InternalError)
-  ]
+  json status x = responseLBS status [("Content-Type", "application/json")] . J.encode . J.object $ x
 
-showResultError (Incompatible     sqlType _ _     hType msg) = msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
-showResultError (UnexpectedNull   _       _ field _     msg) = msg <> " @ " <> field
-showResultError (ConversionFailed sqlType _ _     hType msg) = msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
+  ok x = json status200
+    [ "ok" .= True
+    , "response" .= x
+    ]
 
-catchDb log ret = (`catches` (Handler (\(_ :: QueryError) -> ret) : defaultDbHandlers log))
-
-type Endpoint = (Logger, Connection) -> IO AppResponse
-
-paginate :: Int -> [(Int, J.Value)] -> AppResponse
-paginate pageSize q =
-  let (pages, content) = if null q
-        then (0, J.Null)
-        else ((fst (head q) + pageSize - 1) `quot` pageSize, array (map snd q))
-  in  AppOk $ J.object ["pages" .= pages, "content" .= content]
-
-limit :: Int -> String
-limit = show
-
-offset :: Int -> Int -> String
-offset pageSize page = show ((page - 1) * pageSize)
-
-execdb q fq msg (log, db) = catchDb log (return BadRequest) $ do
-  dbres <- execute db q fq
-  if dbres == 1
-    then do
-      forM_ msg (log Info)
-      return . AppOk $ J.Null
-    else return BadRequest
-
-queryPaged pageSize q fq (log, db) = catchDb log (return InternalError) $ do
-  r <- query db q fq :: IO [(Int, J.Value)]
-  return $ paginate pageSize r
-
-queryOne q fq g msg (log, db) = catchDb log (return BadRequest) $ do
-  q <- query db q fq
-  case q of
-    [Only r] -> do
-      forM_ msg (log Info . ($ r))
-      return . AppOk $ g r
-    _ -> return BadRequest
-
-dbrefresh db = execute db "REFRESH MATERIALIZED VIEW posts_view;" ()
+  err status = json status
+    [ "ok" .= False
+    , "code" .= statusCode status
+    , "error" .= decodeUtf8 (statusMessage status)
+    ]
 

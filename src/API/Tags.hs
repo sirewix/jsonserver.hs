@@ -1,18 +1,18 @@
 {-# LANGUAGE
     OverloadedStrings
+  , FlexibleContexts
   , QuasiQuotes
   #-}
 
-module Tags where
+module API.Tags where
 
-import           App                            ( execdb
+import           App.Prototype.Database         ( execOne
                                                 , limit
                                                 , offset
                                                 , queryOne
                                                 , queryPaged
+                                                , sql
                                                 )
-import           Database.PostgreSQL.Simple.SqlQQ
-                                                ( sql )
 import           Entities                       ( Page(..)
                                                 , UserName(..)
                                                 , Tag(..)
@@ -39,12 +39,12 @@ createTag (UserName admin) (Name tag) = queryOne
   (J.Number . fromInteger)
   (Just $ \q -> admin <> " created tag " <> showText q <> " '" <> tag <> "'")
 
-editTag (UserName admin) (Tag tid, Name newtag) = execdb
+editTag (UserName admin) (Tag tid, Name newtag) = execOne
   "UPDATE tags SET tag = ? WHERE id = ?"
   (newtag, tid)
   (Just $ admin <> " changed tag " <> showText tid <> " to '" <> newtag <> "'")
 
-deleteTag (UserName admin) (Tag tid) = execdb
+deleteTag (UserName admin) (Tag tid) = execOne
   "DELETE FROM tags WHERE id = ?"
   [tid]
   (Just $ admin <> " deleted tag " <> showText tid)

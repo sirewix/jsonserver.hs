@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Config where
+import           App.Prototype.Log              ( Priority(..) )
 import           Data.Yaml                      ( (.!=)
                                                 , (.:?)
                                                 , FromJSON(..)
@@ -7,7 +8,6 @@ import           Data.Yaml                      ( (.!=)
                                                 , withObject
                                                 )
 import           Database.PostgreSQL.Simple     ( ConnectInfo(..) )
-import           Logger                         ( Priority(..) )
 import           Network.Wai.Handler.Warp       ( Port )
 
 newtype DBConfig = DBConfig { unDBConfig :: ConnectInfo }
@@ -25,7 +25,7 @@ data Config = Config
   { database                :: DBConfig
   , port                    :: Port
   , number_of_secrets       :: Int
-  , secrets_update_interval :: Int
+  , secrets_update_interval :: Integer
   , backdoor                :: Bool
   , log_level               :: Priority
   , log_file                :: Maybe String

@@ -1,12 +1,12 @@
 {-# LANGUAGE
     OverloadedStrings
+  , FlexibleContexts
   , ScopedTypeVariables
   #-}
-module Auth
+
+module App.Implementation.Auth
   ( Secrets
   , JWTVerification(..)
-  , login
-  , register
   , generateSecret
   , updateSecrets
   , generateJWT
@@ -15,15 +15,15 @@ module Auth
   )
 where
 
-import           App                            ( AppResponse(..)
-                                                , execdb
-                                                , catchDb
+import           App.Prototype.App              ( HasEnv(..) )
+import           App.Prototype.Auth             ( JWTVerification(..)
+                                                , Secrets
                                                 )
-import           Control.Concurrent.MVar        ( MVar
-                                                , readMVar
+import           Control.Concurrent.MVar        ( readMVar
                                                 , modifyMVar_
                                                 )
 import           Control.Monad                  ( replicateM )
+import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Aeson                     ( (.=) )
 import           Data.Foldable                  ( asum )
 import           Data.Text                      ( Text
@@ -31,14 +31,7 @@ import           Data.Text                      ( Text
                                                 )
 import           Data.Time.Clock                ( NominalDiffTime )
 import           Data.Time.Clock.POSIX          ( getPOSIXTime )
-import           Database.PostgreSQL.Simple     ( Only(..)
-                                                , query
-                                                )
-import           Logger                         ( Priority(..) )
-import           Entities                       ( LastName(..)
-                                                , UserName(..)
-                                                , Password(..)
-                                                )
+import           Entities                       ( UserName(..) )
 import           System.Random                  ( randomIO )
 import           Web.JWT                        ( Algorithm(..)
                                                 , ClaimsMap(..)
@@ -59,32 +52,12 @@ import qualified Data.Aeson.Types              as J
 import qualified Data.Map.Strict               as Map
 import qualified Web.JWT                       as JWT
 
-type Secrets = MVar [Signer]
-
-data JWTVerification a =
-    JWTOk a
-  | JWTExp
-  | JWTReject
-  deriving (Eq, Show)
-
-instance Functor JWTVerification where
-  fmap f (JWTOk a) = JWTOk (f a)
-  fmap _ JWTExp    = JWTExp
-  fmap _ JWTReject = JWTReject
-
-instance Applicative JWTVerification where
-  pure = JWTOk
-  (JWTOk f) <*> (JWTOk a) = JWTOk (f a)
-  (JWTOk _) <*> JWTExp    = JWTExp
-  (JWTOk _) <*> JWTReject = JWTReject
-  JWTExp    <*> _         = JWTExp
-  JWTReject <*> _         = JWTReject
-
-instance Monad JWTVerification where
-  (JWTOk a) >>= f = f a
-  JWTExp    >>= _ = JWTExp
-  JWTReject >>= _ = JWTReject
-
+runJWT :: (HasEnv Secrets m, MonadIO m) => m (NominalDiffTime, [Signer])
+runJWT = do
+  secrets <- undefined
+  now  <- liftIO getPOSIXTime
+  keys <- liftIO $ readMVar secrets
+  return (now, keys)
 
 generateJWT :: Integer -> (Bool, Bool, Text) -> (NominalDiffTime, [Signer]) -> Text
 generateJWT _ (_, _, _) (_, []) = error "secrets list must not be empty"
@@ -99,12 +72,6 @@ generateJWT expTime (admin, author, name) (now, secret : _) =
       }
   in
     encodeSigned secret header claims
-
-runJWT :: Secrets -> IO (NominalDiffTime, [Signer])
-runJWT secrets = do
-  now  <- getPOSIXTime
-  keys <- readMVar secrets
-  return (now, keys)
 
 verifyJWT :: Maybe Text -> Text -> (NominalDiffTime, [Signer]) -> JWTVerification UserName
 verifyJWT need jwt (now, keys) = do
@@ -121,20 +88,6 @@ verifyJWT need jwt (now, keys) = do
  where
   lc cs c = J.parseMaybe J.parseJSON =<< Map.lookup c (unClaimsMap $ unregisteredClaims cs)
   mb = maybe JWTReject JWTOk
-
-register (UserName name, LastName lastName, Password password) = execdb
-  "INSERT INTO users (name, lastname, registrationdate, admin, password) VALUES (?, ?, current_timestamp, false, ?)"
-  (name, lastName, password)
-  (Just $ "new user" <> name <> " " <> lastName)
-
-login genToken (UserName name, Password password) (log, db) = catchDb log (return AccessDenied) $ do
-  q <- query db "SELECT admin FROM users WHERE name = ? AND password = ?" (name, password)
-  case q of
-    [Only admin] -> do
-      token <- genToken (admin, False, name)
-      _ <- log Info $ name <> " logged in"
-      return . AppOk $ J.String token
-    _ -> return AccessDenied
 
 generateSecret = hmacSecret . pack <$> replicateM 30 randomIO
 

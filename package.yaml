@@ -22,6 +22,7 @@ dependencies:
 - bytestring        == 0.10.10.*
 - jwt               == 0.10.*
 - time              == 1.*
+- mtl               == 2.2.*
 - random            == 1.*
 - aeson             == 1.*
 - containers        == 0.6.*

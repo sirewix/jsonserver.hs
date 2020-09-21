@@ -1,18 +1,23 @@
 {-# LANGUAGE
     OverloadedStrings
+  , FlexibleContexts
   , QuasiQuotes
   #-}
 
-module Posts where
+module API.Posts where
 
-import           App                            ( Endpoint
-                                                , execdb
+import           App.Response                   ( AppResponse(..) )
+import           App.Prototype.Database         ( DbAccess(..)
+                                                , execOne
                                                 , limit
                                                 , offset
                                                 , queryOne
                                                 , queryPaged
+                                                , sql
                                                 )
-import           Database.PostgreSQL.Simple.SqlQQ(sql)
+import           App.Prototype.Log              ( HasLog(..) )
+import           Control.Monad.Except           ( MonadError(..) )
+import           Data.Text                      ( Text )
 import           Entities                       ( UserName(..)
                                                 , Content(..)
                                                 , Title(..)
@@ -63,7 +68,7 @@ createPost (UserName author) (Title title, CategoryId cid, Content content, Imag
     (J.Number . fromInteger)
     (Just $ \q -> author <> " created post " <> showText q <> " titled '" <> title <> "'")
 
-attachTag (UserName author) (PostId pid, Tag tag) = execdb
+attachTag (UserName author) (PostId pid, Tag tag) = execOne
   [sql|
     INSERT INTO tag_post_relations (tag, post)
     (SELECT (?), id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
@@ -71,7 +76,7 @@ attachTag (UserName author) (PostId pid, Tag tag) = execdb
   (tag, pid, author)
   Nothing
 
-deattachTag (UserName author) (PostId pid, Tag tag) = execdb
+deattachTag (UserName author) (PostId pid, Tag tag) = execOne
   [sql|
     DELETE FROM tag_post_relations WHERE tag = ? AND post =
     (SELECT id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
@@ -80,7 +85,8 @@ deattachTag (UserName author) (PostId pid, Tag tag) = execdb
   Nothing
 
 editPost
-  :: UserName
+  :: (HasLog m, DbAccess m, MonadError Text m)
+  => UserName
   -> ( PostId
      , Maybe Title
      , Maybe CategoryId
@@ -88,10 +94,9 @@ editPost
      , Maybe Image
      , Maybe Images
      )
-  -> Endpoint
-editPost (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, mbimgs)
-  = execdb
-    [sql|
+  -> m AppResponse
+editPost (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, mbimgs) = execOne
+  [sql|
     UPDATE posts SET
     title = COALESCE (?, title),
     category = COALESCE (?, category),
@@ -100,11 +105,11 @@ editPost (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, m
     images = COALESCE (?, images),
     date = current_timestamp
     WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
-    |]
-    (mbtitle, mbcategory, mbcontent, mbimg, mbimgs, pid, author)
-    (Just $ author <> " changed post " <> showText pid)
+  |]
+  (mbtitle, mbcategory, mbcontent, mbimg, mbimgs, pid, author)
+  (Just $ author <> " changed post " <> showText pid)
 
-publishPost (UserName author) (PostId pid) = execdb
+publishPost (UserName author) (PostId pid) = execOne
   [sql|
     UPDATE posts
     SET published = true
@@ -113,7 +118,7 @@ publishPost (UserName author) (PostId pid) = execdb
   (pid, author)
   (Just $ author <> " published post " <> showText pid)
 
-deletePost (UserName author) (PostId pid) = execdb
+deletePost (UserName author) (PostId pid) = execOne
   [sql|
     DELETE FROM posts
     WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)

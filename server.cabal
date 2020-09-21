@@ -25,21 +25,30 @@ source-repository head
 
 library
   exposed-modules:
+      API.Authors
+      API.Categories
+      API.Comments
+      API.Login
+      API.Posts
+      API.Search
+      API.Tags
+      API.Users
       App
+      App.Implementation.App
+      App.Implementation.Auth
+      App.Implementation.Database
+      App.Implementation.Log
+      App.Prototype.App
+      App.Prototype.Auth
+      App.Prototype.Database
+      App.Prototype.Log
+      App.Response
       Auth
-      Authors
-      Categories
-      Comments
       Config
       Entities
       Entry
-      Logger
+      FromQuery
       Misc
-      Posts
-      Query
-      Search
-      Tags
-      Users
   other-modules:
       Paths_server
   hs-source-dirs:
@@ -53,6 +62,7 @@ library
     , containers ==0.6.*
     , http-types ==0.12.*
     , jwt ==0.10.*
+    , mtl ==2.2.*
     , postgresql-simple ==0.6.*
     , random ==1.*
     , text ==1.2.*
@@ -77,6 +87,7 @@ executable server-exe
     , containers ==0.6.*
     , http-types ==0.12.*
     , jwt ==0.10.*
+    , mtl ==2.2.*
     , postgresql-simple ==0.6.*
     , random ==1.*
     , server
@@ -103,6 +114,7 @@ test-suite server-test
     , containers ==0.6.*
     , http-types ==0.12.*
     , jwt ==0.10.*
+    , mtl ==2.2.*
     , postgresql-simple ==0.6.*
     , random ==1.*
     , server

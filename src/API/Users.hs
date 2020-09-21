@@ -1,20 +1,21 @@
 {-# LANGUAGE
     OverloadedStrings
+  , FlexibleContexts
   , QuasiQuotes
   #-}
 
-module Users where
-import           App                            ( limit
+module API.Users where
+
+import           API.Login                      ( register )
+import           App.Prototype.Database         ( execOne
+                                                , limit
                                                 , offset
-                                                , execdb
                                                 , queryPaged
+                                                , sql
                                                 )
 import           Entities                       ( Page(..)
                                                 , UserName(..)
                                                 )
-import           Auth                           ( register )
-import           Database.PostgreSQL.Simple.SqlQQ
-                                                ( sql )
 
 usersPageSize = 20
 
@@ -38,7 +39,7 @@ getUsers (Page page) = queryPaged
 
 createUser (UserName _admin) = register -- eew
 
-deleteUser (UserName admin) (UserName user) = execdb
+deleteUser (UserName admin) (UserName user) = execOne
   "DELETE FROM users WHERE name = ?"
   [user]
   (Just $ admin <> " deleted user " <> user)
