@@ -50,7 +50,7 @@ instance FromQuery LastName where
 
 instance FromQuery Password where
   parseQuery q = fmap Password
-    . filterMaybe ((\l -> l >= 6 && l <= 30) . T.length)
+    . filterMaybe ((\l -> l >= 3 && l <= 30) . T.length)
     $ "password" .: q
 
 newtype Description = Description Text

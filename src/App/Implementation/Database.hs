@@ -50,6 +50,6 @@ defaultDbHandlers =
     )
   ]
 
-showResultError (DB.Incompatible     sqlType _ _     hType msg) = msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
-showResultError (DB.UnexpectedNull   _       _ field _     msg) = msg <> " @ " <> field
-showResultError (DB.ConversionFailed sqlType _ _     hType msg) = msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
+showResultError (DB.Incompatible     sqlType _ _     hType msg) = "sql incompatible: " <> msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
+showResultError (DB.UnexpectedNull   _       _ field _     msg) = "sql unexpected null: " <> msg <> " @ " <> field
+showResultError (DB.ConversionFailed sqlType _ _     hType msg) = "sql conversion failed" <> msg <> " (" <> hType <> " ~ " <> sqlType <> ")"

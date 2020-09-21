@@ -17,7 +17,7 @@ readT = readMaybe . unpack
 infixr 1 ?
 
 filterMaybe :: (a -> Bool) -> Maybe a -> Maybe a
-filterMaybe pfn mvalue = case mvalue of
-  Just a | pfn a     -> Nothing
-         | otherwise -> mvalue
-  Nothing -> Nothing
+filterMaybe f mvalue = g =<< mvalue
+ where
+  g a | f a       = Just a
+      | otherwise = Nothing

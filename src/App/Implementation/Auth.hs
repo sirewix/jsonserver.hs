@@ -54,7 +54,7 @@ import qualified Web.JWT                       as JWT
 
 runJWT :: (HasEnv Secrets m, MonadIO m) => m (NominalDiffTime, [Signer])
 runJWT = do
-  secrets <- undefined
+  secrets <- getEnv
   now  <- liftIO getPOSIXTime
   keys <- liftIO $ readMVar secrets
   return (now, keys)

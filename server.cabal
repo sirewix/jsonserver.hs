@@ -43,7 +43,6 @@ library
       App.Prototype.Database
       App.Prototype.Log
       App.Response
-      Auth
       Config
       Entities
       Entry
