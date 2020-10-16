@@ -1,4 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Misc where
+
+import           Control.Arrow                  ( left )
+import           Control.Monad.Except           ( MonadError(..), liftEither )
+import           Data.Aeson                     ( FromJSON, Value, parseJSON )
+import           Data.Aeson.Types               ( parseEither )
 import           Data.Text                      ( Text
                                                 , pack
                                                 , unpack
@@ -11,6 +18,12 @@ showText = pack . show
 readT :: Read a => Text -> Maybe a
 readT = readMaybe . unpack
 
+readNullable :: Read a => Text -> Maybe (Maybe a)
+readNullable text =
+  if text == "null"
+     then Just Nothing
+     else Just <$> readT text
+
 (?) :: Bool -> a -> a -> a
 (?) True  x _ = x
 (?) False _ y = y
@@ -21,3 +34,6 @@ filterMaybe f mvalue = g =<< mvalue
  where
   g a | f a       = Just a
       | otherwise = Nothing
+
+fromJson :: (MonadError Text m, FromJSON a) => Value -> m a
+fromJson = liftEither . left pack . parseEither parseJSON

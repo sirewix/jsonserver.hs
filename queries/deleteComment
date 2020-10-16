@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "delete_comment?cid=$1"
+query "deleteComment?cid=$1"

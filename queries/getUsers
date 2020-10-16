@@ -2,4 +2,4 @@
 source ./common
 
 p=$(default 1 ${1})
-query "get_users?page=${p}"
+query "getUsers?page=${p}"

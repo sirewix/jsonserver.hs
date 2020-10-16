@@ -37,6 +37,11 @@ ghc-options:
 
 library:
   source-dirs: src
+  default-extensions:  OverloadedStrings
+                     , FlexibleContexts
+                     , FlexibleInstances
+                     , TypeApplications
+                     , RecordWildCards
 
 executables:
   server-exe:

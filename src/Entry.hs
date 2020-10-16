@@ -1,23 +1,19 @@
-{-# LANGUAGE
-    OverloadedStrings
-  , FlexibleContexts
-  , PartialTypeSignatures
-  , TypeApplications
-  #-}
-
+{-# LANGUAGE ConstraintKinds #-}
 module Entry where
 
 import           App.Response                   ( AppResponse(..))
 import           App.Prototype.App              ( HasEnv(..) )
-import           App.Prototype.Auth             ( Secrets
+import           App.Prototype.Auth             ( Admin(..)
+                                                , Author(..)
+                                                , User(..)
+                                                , Secrets
                                                 , JWTVerification(..)
                                                 )
 import           App.Prototype.Database         ( DbAccess(..) )
 import           App.Prototype.Log              ( HasLog(..)
                                                 , Priority(..)
                                                 )
-import           App.Implementation.Auth        ( generateJWT
-                                                , runJWT
+import           App.Implementation.Auth        ( runJWT
                                                 , verifyJWT
                                                 )
 import           Config                         ( Config(..) )
@@ -25,16 +21,16 @@ import           Control.Monad                  ( void )
 import           Control.Monad.Except           ( MonadError(..) )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Text                      ( Text )
-import           Entities                       ( UserName(..)
-                                                , Token(..)
-                                                , PostId(..)
-                                                )
 import           Misc                           ( showText
                                                 , readT
                                                 )
 import           Network.Wai                    ( Request(..) )
-import           FromQuery                      ( FromQuery(..) )
-import qualified API.Login                     as Login
+import           Query.Common                   ( Id(..)
+                                                , Token(..)
+                                                )
+import           Query.FromQuery                ( FromQuery(..)
+                                                , unQueryParser
+                                                )
 import qualified API.Authors                   as Authors
 import qualified API.Categories                as Categories
 import qualified API.Comments                  as Comments
@@ -43,22 +39,25 @@ import qualified API.Search                    as Search
 import qualified API.Tags                      as Tags
 import qualified API.Users                     as Users
 
+type App m =
+  ( HasEnv Config m
+  , HasEnv Secrets m
+  , HasLog m
+  , DbAccess m
+  , Monad m
+  , MonadIO m
+  , MonadError Text m
+  )
+
 entry
-  :: ( HasEnv Config m
-     , HasEnv Secrets m
-     , HasLog m
-     , DbAccess m
-     , MonadIO m
-     , MonadError Text m
-     )
+  :: App m
   => Request
   -> m AppResponse
 entry req = do
-  config <- getEnv @Config
   log' Debug $ showText req
   case pathInfo req of
-    ["register"      ]        -> public Login.register
-    ["login"         ]        -> public (Login.login $ \arg -> generateJWT (secrets_update_interval config * 60) arg <$> runJWT)
+    ["register"      ]        -> public Users.register
+    ["login"         ]        -> public Users.login
 
     ["makeAuthor"    ]        -> admin Authors.makeAuthor
     ["getAuthors"    ]        -> admin Authors.getAuthors
@@ -76,11 +75,10 @@ entry req = do
     ["deleteCategory"]        -> admin Categories.deleteCategory
 
     ["getUsers"      ]        -> public Users.getUsers
-    ["createUser"    ]        -> admin Users.createUser
     ["deleteUser"    ]        -> admin Users.deleteUser
 
-    ["getPost"       ]        -> author Posts.getPost
-    ["getPosts"      ]        -> author Posts.getPosts
+    ["getDraft"      ]        -> author Posts.getDraft
+    ["getDrafts"     ]        -> author Posts.getDrafts
     ["createPost"    ]        -> author Posts.createPost
     ["editPost"      ]        -> author Posts.editPost
     ["publishPost"   ]        -> author Posts.publishPost
@@ -90,70 +88,50 @@ entry req = do
     ["deattachTag"   ]        -> author Posts.deattachTag
 
     ["post"          ]        -> return BadRequest
-    ["post", pid     ]        -> path public pid (Posts.post . PostId)
-    ["post", pid, "comments"] -> path public pid (Comments.getComments . PostId)
+    ["post", pid     ]        -> path public pid (Posts.post . Id)
+    ["post", pid, "comments"] -> path public pid (Comments.getComments . Id)
     ["posts"         ]        -> public Search.posts
 
     ["addComment"    ]        -> user Comments.addComment
-    ["deleteComment" ]        -> user Comments.deleteComment
+    ["deleteComment" ]        -> admin Comments.deleteComment
 
     _                         -> return NotFound
  where
-  admin, author, user
-    :: ( FromQuery q
-       , HasEnv Config m
-       , HasEnv Secrets m
-       , HasLog m
-       , DbAccess m
-       , MonadIO m
-       , MonadError Text m
-       )
-    => (UserName -> q -> m AppResponse) -> m AppResponse
-  admin  = needToken (Just "admin")
-  author = needToken (Just "author")
-  user   = needToken Nothing
+  admin :: (FromQuery q, App m) => (Admin -> q -> m AppResponse) -> m AppResponse
+  admin  = needToken Admin (Just "admin")
+
+  author :: (FromQuery q, App m) => (Author -> q -> m AppResponse) -> m AppResponse
+  author = needToken Author (Just "author")
+
+  user :: (FromQuery q, App m) => (User -> q -> m AppResponse) -> m AppResponse
+  user   = needToken User Nothing
 
   needToken
-    :: ( FromQuery q
-       , HasEnv Config m
-       , HasEnv Secrets m
-       , HasLog m
-       , DbAccess m
-       , Monad m
-       , MonadIO m
-       , MonadError Text m
-       )
-    => Maybe Text
-    -> (UserName -> q -> m AppResponse)
+    :: (FromQuery q, App m)
+    => (Text -> r)
+    -> Maybe Text
+    -> (r -> q -> m AppResponse)
     -> m AppResponse
-  needToken claim f = case parseQuery (queryString req) of
+  needToken role claim f = case unQueryParser parseQuery (queryString req) of
     Just (Just (Token token), q) -> do
       jwt <- verifyJWT claim token <$> runJWT
       case jwt of
-        JWTOk username -> f username q
+        JWTOk username -> f (role username) q
         JWTExp         -> return TokenExpired
         JWTReject      -> return NotFound
     Just (Nothing, q) -> getEnv >>= \config ->
       if backdoor config
-         then f (UserName "admin") q
+         then f (role "admin") q
          else return NotFound
     Nothing -> return NotFound
 
   path which x f = maybe (return BadRequest) (which . f) (readT x)
 
   public
-    :: ( FromQuery q
-       , HasEnv Config m
-       , HasEnv Secrets m
-       , HasLog m
-       , DbAccess m
-       , Monad m
-       , MonadIO m
-       , MonadError Text m
-       )
+    :: (FromQuery q, App m)
     => (q -> m AppResponse)
     -> m AppResponse
-  public f = maybe (return BadRequest) f (parseQuery $ queryString req)
+  public f = maybe (return BadRequest) f (unQueryParser parseQuery $ queryString req)
 
 dbrefresh :: (Functor m, DbAccess m) => m ()
 dbrefresh = void $ execute "REFRESH MATERIALIZED VIEW posts_view;" ()

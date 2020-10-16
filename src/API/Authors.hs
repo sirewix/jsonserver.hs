@@ -6,42 +6,73 @@
 
 module API.Authors where
 
-import           App.Prototype.Database         ( execOne
-                                                , queryPaged
-                                                , limit
-                                                , offset
-                                                , sql
+import           API.Users                      ( UserName(..) )
+import           App.Response                   ( AppResponse(..) )
+import           App.Prototype.App              ( HasEnv )
+import           App.Prototype.Database         ( DbAccess(..), paginate )
+import           App.Prototype.Log              ( HasLog(..)
+                                                , Priority(..)
                                                 )
-import           Entities                       ( UserName(..)
-                                                , Page(..)
-                                                , Description(..)
+import           App.Prototype.Auth             ( Admin(..) )
+import           Config                         ( Config )
+import           Data.Text                      ( Text )
+import           Query.Common                   ( Page(..) )
+import           Query.FromQuery                ( FromQuery(..)
+                                                , param
+                                                , opt
                                                 )
+import qualified Data.Aeson                    as J
+import qualified Model.Authors                 as M
 
-authorsPageSize = 20
+getAuthors
+  :: ( Monad m
+     , DbAccess m
+     , HasEnv Config m
+     )
+  => Admin
+  -> Page
+  -> m AppResponse
+getAuthors (Admin _) (Page page) = AppOk . paginate <$> M.getAuthors page
 
-getAuthors (UserName _admin) (Page page) = queryPaged
-  authorsPageSize
-  [sql|
-    SELECT
-        count(*) OVER(),
-        to_json (authors)
-    FROM authors
-    LIMIT ?
-    OFFSET ?
-  |]
-  (limit authorsPageSize, offset authorsPageSize page)
+newtype AuthorEssential = AuthorEssential M.AuthorEssential
 
-makeAuthor (UserName admin) (UserName name, Description description) = execOne
-  "INSERT INTO authors (username, description) VALUES (?, ?)"
-  (name, description)
-  (Just $ admin <> " promoted " <> name <> " to authors with description \"" <> description <> "\"")
+instance FromQuery AuthorEssential where
+  parseQuery = fmap AuthorEssential . M.AuthorEssential
+    <$> param "username"
+    <*> param "description"
 
-editAuthor (UserName admin) (UserName name, Description description) = execOne
-  "UPDATE authors SET description = ? WHERE username = ?"
-  (description, name)
-  (Just $ admin <> " edited " <> name <> "'s description to \"" <> description <> "\"")
+newtype AuthorPartial = AuthorPartial M.AuthorPartial
 
-deleteAuthor (UserName admin) (UserName name) = execOne
-  "DELETE FROM authors WHERE username = ?"
-  [name]
-  (Just $ admin <> " exiled " <> name <> " from authors guild")
+instance FromQuery AuthorPartial where
+  parseQuery = fmap AuthorPartial . M.AuthorPartial
+    <$> opt "username"
+    <*> opt "description"
+
+makeAuthor (Admin admin) (AuthorEssential entity@M.AuthorEssential {..}) = do
+  res <- M.makeAuthor entity
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ admin <> " promoted " <> username <> " to authors with description \"" <> description <> "\""
+      return (AppOk J.Null)
+
+newtype PreviousUserName = PreviousUserName Text
+
+instance FromQuery PreviousUserName where
+  parseQuery = PreviousUserName <$> param "previous_username"
+
+editAuthor (Admin admin) (PreviousUserName prevName, AuthorPartial entity@M.AuthorPartial {..}) = do
+  res <- M.editAuthor prevName entity
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ admin <> " edited author " <> prevName
+      return (AppOk J.Null)
+
+deleteAuthor (Admin admin) (UserName name) = do
+  res <- M.deleteAuthor name
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ admin <> " exiled " <> name <> " from authors guild"
+      return (AppOk J.Null)

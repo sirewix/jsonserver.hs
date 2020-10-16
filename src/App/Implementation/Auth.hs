@@ -1,9 +1,3 @@
-{-# LANGUAGE
-    OverloadedStrings
-  , FlexibleContexts
-  , ScopedTypeVariables
-  #-}
-
 module App.Implementation.Auth
   ( Secrets
   , JWTVerification(..)
@@ -19,6 +13,7 @@ import           App.Prototype.App              ( HasEnv(..) )
 import           App.Prototype.Auth             ( JWTVerification(..)
                                                 , Secrets
                                                 )
+import           Config                         ( Config(..) )
 import           Control.Concurrent.MVar        ( readMVar
                                                 , modifyMVar_
                                                 )
@@ -31,7 +26,6 @@ import           Data.Text                      ( Text
                                                 )
 import           Data.Time.Clock                ( NominalDiffTime )
 import           Data.Time.Clock.POSIX          ( getPOSIXTime )
-import           Entities                       ( UserName(..) )
 import           System.Random                  ( randomIO )
 import           Web.JWT                        ( Algorithm(..)
                                                 , ClaimsMap(..)
@@ -52,16 +46,17 @@ import qualified Data.Aeson.Types              as J
 import qualified Data.Map.Strict               as Map
 import qualified Web.JWT                       as JWT
 
-runJWT :: (HasEnv Secrets m, MonadIO m) => m (NominalDiffTime, [Signer])
+runJWT :: (HasEnv Secrets m, HasEnv Config m, MonadIO m) => m (Integer, NominalDiffTime, [Signer])
 runJWT = do
-  secrets <- getEnv
+  secrets <- getEnv @Secrets
+  expTime <- (60 *) . secrets_update_interval <$> getEnv @Config
   now  <- liftIO getPOSIXTime
   keys <- liftIO $ readMVar secrets
-  return (now, keys)
+  return (expTime, now, keys)
 
-generateJWT :: Integer -> (Bool, Bool, Text) -> (NominalDiffTime, [Signer]) -> Text
-generateJWT _ (_, _, _) (_, []) = error "secrets list must not be empty"
-generateJWT expTime (admin, author, name) (now, secret : _) =
+generateJWT :: (Bool, Bool, Text) -> (Integer, NominalDiffTime, [Signer]) -> Text
+generateJWT (_, _, _) (_, _, []) = error "secrets list must not be empty"
+generateJWT (admin, author, name) (expTime, now, secret : _) =
   let
     header = mempty { alg = Just HS256 }
     claims = mempty
@@ -73,12 +68,12 @@ generateJWT expTime (admin, author, name) (now, secret : _) =
   in
     encodeSigned secret header claims
 
-verifyJWT :: Maybe Text -> Text -> (NominalDiffTime, [Signer]) -> JWTVerification UserName
-verifyJWT need jwt (now, keys) = do
+verifyJWT :: Maybe Text -> Text -> (Integer, NominalDiffTime, [Signer]) -> JWTVerification Text
+verifyJWT need jwt (_, now, keys) = do
   verified <- mb . asum . flip map keys $ \k -> decodeAndVerifySignature k jwt
   let cs = claims verified
   expires <- mb $ JWT.exp cs
-  name    <- mb $ UserName . stringOrURIToText <$> JWT.sub cs
+  name    <- mb $ stringOrURIToText <$> JWT.sub cs
   auth    <- mb $ maybe (Just True) (lc cs) need
   if not auth
     then JWTReject

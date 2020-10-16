@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "create_tag?name=$1"
+query "createTag?name=$1"

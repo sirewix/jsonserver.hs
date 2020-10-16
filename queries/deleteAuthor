@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "delete_author?username=$1"
+query "deleteAuthor?username=$1"

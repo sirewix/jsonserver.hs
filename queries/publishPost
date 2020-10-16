@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "publish_post?pid=$1"
+query "publishPost?pid=$1"

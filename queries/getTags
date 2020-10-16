@@ -2,4 +2,4 @@
 source ./common
 
 p=$(default 1 ${1})
-query "get_tags?page=${p}"
+query "getTags?page=${p}"

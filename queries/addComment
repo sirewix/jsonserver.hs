@@ -2,4 +2,4 @@
 source ./common
 
 p=$(default 1 ${2})
-query "add_comment?pid=$1&text=$2"
+query "addComment?pid=$1&text=$2"

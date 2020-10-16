@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "attach_tag?tag=$1&pid=$2"
+query "attachTag?tag=$1&pid=$2"

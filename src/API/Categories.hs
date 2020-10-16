@@ -1,61 +1,80 @@
-{-# LANGUAGE
-    OverloadedStrings
-  , FlexibleContexts
-  , QuasiQuotes
-  #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module API.Categories where
 
 import           App.Response                   ( AppResponse(..) )
-import           App.Prototype.Database         ( DbAccess(..)
-                                                , Only(..)
-                                                , execOne
-                                                , queryOne
-                                                , sql
+import           App.Prototype.App              ( HasEnv )
+import           App.Prototype.Database         ( DbAccess(..), paginate )
+import           App.Prototype.Log              ( HasLog(..)
+                                                , Priority(..)
                                                 )
-import           App.Prototype.Log              ( HasLog(..) )
-import           Control.Monad.Except           ( MonadError(..) )
-import           Data.Text                      ( Text )
-import           Data.Yaml                      ( array )
-import           Entities                       ( UserName(..)
-                                                , CategoryId(..)
-                                                , Name(..)
+import           App.Prototype.Auth             ( Admin(..) )
+import           Config                         ( Config )
+import           Misc                           ( readT
+                                                , readNullable
+                                                , showText
                                                 )
-import           Misc                           ( showText )
+import           Query.Common                   ( Id(..), Page(..) )
+import           Query.FromQuery                ( FromQuery(..)
+                                                , liftMaybe
+                                                , param
+                                                , opt
+                                                )
 import qualified Data.Aeson                    as J
+import qualified Model.Categories              as M
 
-getCategories :: (Monad m, DbAccess m) => Maybe CategoryId -> m AppResponse
-getCategories mbcid =
-  let q = [sql|
-            SELECT
-              json_build_object (
-                  'id', id,
-                  'name', name,
-              )
-            FROM categories WHERE
-          |]
-      cond = case mbcid of
-        Just _  -> "parent_id = ?"
-        Nothing -> "parent_id is ?"
-   in AppOk . array . map fromOnly <$> query (q <> cond) [mbcid]
+newtype CategoryEssential = CategoryEssential M.CategoryEssential
+
+instance FromQuery CategoryEssential where
+  parseQuery = fmap CategoryEssential . M.CategoryEssential
+    <$> param "name"
+    <*> (liftMaybe . maybe (Just Nothing) (fmap Just . readT) =<< opt "parent_id")
+
+newtype CategoryPartial = CategoryPartial M.CategoryPartial
+
+instance FromQuery CategoryPartial where
+  parseQuery = fmap CategoryPartial . M.CategoryPartial
+    <$> opt "name"
+    <*> (liftMaybe . maybe (Just Nothing) (fmap Just . readNullable) =<< opt "parent_id")
+
+getCategories :: (Monad m, DbAccess m, HasEnv Config m) => (Page, Maybe Id) -> m AppResponse
+getCategories (Page page, mbcid) = AppOk . paginate <$> M.getCategories (unId <$> mbcid) page
 
 createCategory
-  :: (HasLog m, DbAccess m, MonadError Text m)
-  => UserName
-  -> (Name, Maybe CategoryId)
+  :: (HasLog m, DbAccess m)
+  => Admin
+  -> CategoryEssential
   -> m AppResponse
-createCategory (UserName admin) (Name category, mbcid) = queryOne
-  "INSERT INTO categories (name, parent_id) VALUES (?, ?) RETURNING id"
-  (category, mbcid)
-  (J.Number . fromInteger)
-  (Just $ \q -> admin <> " created category " <> showText q <> " '" <> category <> "'")
+createCategory (Admin admin) (CategoryEssential entity@(M.CategoryEssential {..})) = do
+  cid <- M.createCategory entity
+  case cid of
+    Left _ -> return BadRequest
+    Right cid -> do
+      log' Info (admin <> " created category " <> showText cid <> " '" <> name <> "'")
+      return . AppOk . J.Number . fromInteger . toInteger $ cid
 
-editCategory (UserName admin) (Name category, CategoryId cid) = execOne
-  "UPDATE categories SET name = ? WHERE id = ?"
-  (category, cid)
-  (Just $ admin <> " changed category " <> showText cid <> " to '" <> category <> "'")
+editCategory
+  :: (HasLog m, DbAccess m)
+  => Admin
+  -> (Id, CategoryPartial)
+  -> m AppResponse
+editCategory (Admin admin) (Id cid, CategoryPartial entity@(M.CategoryPartial {..})) = do
+  res <- M.editCategory cid entity
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ admin <> " changed category " <> showText cid
+      return (AppOk J.Null)
 
-deleteCategory (UserName admin) (CategoryId cid) = execOne
-  "DELETE FROM categories WHERE id = ?"
-  [cid]
-  (Just $ admin <> " deleted category " <> showText cid)
+deleteCategory
+  :: (HasLog m, DbAccess m)
+  => Admin
+  -> Id
+  -> m AppResponse
+deleteCategory (Admin admin) (Id cid) = do
+  res <- M.deleteCategory cid
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ admin <> " deleted category " <> showText cid
+      return (AppOk J.Null)

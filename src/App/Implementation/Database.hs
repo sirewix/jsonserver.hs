@@ -26,26 +26,26 @@ postgresqlExecute
   :: (HasEnv DbEnv m, MonadIO m, DB.ToRow q, MonadError Text m)
   => DB.Query
   -> q
-  -> m Int64
+  -> m (Either Text Int64)
 postgresqlExecute q fq = do
   DbEnv conn <- getEnv
-  liftEither =<< liftIO ((Right <$> DB.execute conn q fq) `catches` defaultDbHandlers)
+  liftEither =<< liftIO ((Right . Right <$> DB.execute conn q fq) `catches` defaultDbHandlers)
 
 postgresqlQuery
   :: (HasEnv DbEnv m, MonadIO m, DB.ToRow q, DB.FromRow r, MonadError Text m)
   => DB.Query
   -> q
-  -> m [r]
+  -> m (Either Text [r])
 postgresqlQuery q fq = do
   DbEnv conn <- getEnv
-  liftEither =<< liftIO ((Right <$> DB.query conn q fq) `catches` defaultDbHandlers)
+  liftEither =<< liftIO ((Right . Right <$> DB.query conn q fq) `catches` defaultDbHandlers)
 
 defaultDbHandlers =
   [ Handler (\(e :: FormatError) -> return . Left . pack $ fmtMessage e )
   , Handler (\(e :: ResultError) -> return . Left . pack $ showResultError e)
   , Handler (\(e :: QueryError)  -> return . Left . pack $ qeMessage e)
   , Handler
-    (\(e :: SqlError) -> return . Left . decodeUtf8 $
+    (\(e :: SqlError) -> return . Right . Left . decodeUtf8 $
       sqlErrorMsg e <> " (" <> sqlErrorDetail e <> ") (" <> sqlErrorHint e <> ")"
     )
   ]

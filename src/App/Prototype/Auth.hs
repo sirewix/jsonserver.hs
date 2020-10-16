@@ -1,11 +1,12 @@
-module App.Prototype.Auth
-  ( Secrets
-  , JWTVerification(..)
-  )
-where
+module App.Prototype.Auth where
 
 import           Control.Concurrent.MVar        ( MVar )
+import           Data.Text                      ( Text )
 import           Web.JWT                        ( Signer )
+
+newtype Admin  = Admin Text
+newtype Author = Author Text
+newtype User   = User Text
 
 type Secrets = MVar [Signer]
 

@@ -1,127 +1,146 @@
 {-# LANGUAGE
-    OverloadedStrings
-  , FlexibleContexts
-  , QuasiQuotes
+    QuasiQuotes
   #-}
 
 module API.Posts where
 
 import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.Database         ( DbAccess(..)
-                                                , execOne
-                                                , limit
-                                                , offset
-                                                , queryOne
-                                                , queryPaged
-                                                , sql
+                                                , paginate
+                                                , PGArray(..)
                                                 )
-import           App.Prototype.Log              ( HasLog(..) )
-import           Control.Monad.Except           ( MonadError(..) )
-import           Data.Text                      ( Text )
-import           Entities                       ( UserName(..)
-                                                , Content(..)
-                                                , Title(..)
-                                                , CategoryId(..)
+import           App.Prototype.Log              ( HasLog(..)
+                                                , Priority(..)
+                                                )
+import           App.Prototype.Auth             ( Author(..) )
+import           Misc                           ( readT
+                                                , showText
+                                                )
+import           Query.Common                   ( Id(..)
                                                 , Page(..)
-                                                , PostId(..)
-                                                , Image(..)
-                                                , Images(..)
-                                                , Tag(..)
                                                 )
-import           Misc                           ( showText )
+import           Query.FromQuery                ( FromQuery(..)
+                                                , liftMaybe
+                                                , param
+                                                , opt
+                                                )
 import qualified Data.Aeson                    as J
+import qualified Model.Posts                   as M
 
-postsPageSize = 20
+post
+  :: DbAccess m
+  => Id
+  -> ()
+  -> m AppResponse
+post (Id id) () = either (const BadRequest) (AppOk . J.toJSON) <$> M.getPublishedPost id
 
-post (PostId pid) () = queryOne
-  "SELECT json FROM posts_view WHERE id = ? AND published = true"
-  [pid]
-  id
-  Nothing
+getDraft
+  :: DbAccess m
+  => Author
+  -> Id
+  -> m AppResponse
+getDraft (Author author) (Id id) =
+  either (const BadRequest) (AppOk . J.toJSON) <$> M.getUnpublishedPost id author
 
-getPost (UserName author) (PostId pid) = queryOne
-  "SELECT json FROM posts_view WHERE id = ? AND authorname = ?"
-  (pid, author)
-  id
-  Nothing
+getDrafts (Author author) (Page page) = AppOk . paginate <$> M.getDrafts author page
 
-getPosts (UserName author) (Page page) = queryPaged
-  postsPageSize
-  [sql|
-    SELECT
-        count(*) OVER(),
-        json
-    FROM posts_view
-    WHERE authorname = ?
-    LIMIT ?
-    OFFSET ?
-  |]
-  (author, limit postsPageSize, offset postsPageSize page)
+newtype PostEssential = PostEssential M.PostEssential
 
-createPost (UserName author) (Title title, CategoryId cid, Content content, Image img, Images images)
-  = queryOne
-    [sql|
-    INSERT INTO posts (title, date, author, category, content, mainImage, images, published)
-    VALUES (?, current_timestamp, (SELECT id FROM authors WHERE username = ?), ?, ?, ?, ?, false) RETURNING id
-    |]
-    (title, author, cid, content, img, Images images)
-    (J.Number . fromInteger)
-    (Just $ \q -> author <> " created post " <> showText q <> " titled '" <> title <> "'")
+instance FromQuery PostEssential where
+  parseQuery = fmap PostEssential $ M.PostEssential
+    <$> param "title"
+    <*> (liftMaybe . readT =<< param "category_id")
+    <*> param "content"
+    <*> param "main_image"
+    <*> (fmap PGArray . liftMaybe . readT =<< param "images")
 
-attachTag (UserName author) (PostId pid, Tag tag) = execOne
-  [sql|
-    INSERT INTO tag_post_relations (tag, post)
-    (SELECT (?), id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
-  |]
-  (tag, pid, author)
-  Nothing
+createPost
+  :: (HasLog m, DbAccess m)
+  => Author
+  -> PostEssential
+  -> m AppResponse
+createPost (Author author) (PostEssential entity@M.PostEssential{..}) = do
+  pid <- M.createPost author entity
+  case pid of
+    Left _ -> return BadRequest
+    Right pid -> do
+      log' Info $ author <> " created post " <> showText pid <> " titled '" <> title <> "'"
+      return . AppOk . J.Number . fromInteger . toInteger $ pid
 
-deattachTag (UserName author) (PostId pid, Tag tag) = execOne
-  [sql|
-    DELETE FROM tag_post_relations WHERE tag = ? AND post =
-    (SELECT id FROM posts WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?))
-  |]
-  (tag, pid, author)
-  Nothing
+data TagPostRelation = TagPostRelation M.TagPostRelation
+
+instance FromQuery TagPostRelation where
+  parseQuery = fmap TagPostRelation $ M.TagPostRelation
+    <$> (liftMaybe . readT =<< param "tag_id")
+    <*> (liftMaybe . readT =<< param "post_id")
+
+attachTag (Author author) (TagPostRelation rel@M.TagPostRelation{..}) = do
+  res <- M.attachTag rel author
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ author <> " attached tag " <> showText tag_id <> " to post " <> showText post_id
+      return (AppOk J.Null)
+
+deattachTag (Author author) (TagPostRelation rel@M.TagPostRelation{..}) = do
+  res <- M.deattachTag rel author
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ author <> " deattached tag " <> showText tag_id <> " to post " <> showText post_id
+      return (AppOk J.Null)
+
+newtype PostPartial = PostPartial M.PostPartial
+
+instance FromQuery PostPartial where
+  parseQuery =
+    fmap PostPartial
+      $   M.PostPartial
+      <$> opt "title"
+      <*> (liftMaybe . maybe (Just Nothing) (fmap Just . readT) =<< opt "category_id")
+      <*> opt "content"
+      <*> opt "main_image"
+      <*> (   fmap (fmap PGArray)
+          .   liftMaybe
+          .   maybe (Just Nothing) (fmap Just . readT)
+          =<< opt "images"
+          )
 
 editPost
-  :: (HasLog m, DbAccess m, MonadError Text m)
-  => UserName
-  -> ( PostId
-     , Maybe Title
-     , Maybe CategoryId
-     , Maybe Content
-     , Maybe Image
-     , Maybe Images
-     )
+  :: (HasLog m, DbAccess m)
+  => Author
+  -> (Id, PostPartial)
   -> m AppResponse
-editPost (UserName author) (PostId pid, mbtitle, mbcategory, mbcontent, mbimg, mbimgs) = execOne
-  [sql|
-    UPDATE posts SET
-    title = COALESCE (?, title),
-    category = COALESCE (?, category),
-    content = COALESCE (?, content),
-    mainImage = COALESCE (?, mainImage),
-    images = COALESCE (?, images),
-    date = current_timestamp
-    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
-  |]
-  (mbtitle, mbcategory, mbcontent, mbimg, mbimgs, pid, author)
-  (Just $ author <> " changed post " <> showText pid)
+editPost (Author author) (Id pid, PostPartial entity@M.PostPartial{..}) = do
+  res <- M.editPost author entity
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ author <> " edited post " <> showText pid
+      return (AppOk J.Null)
 
-publishPost (UserName author) (PostId pid) = execOne
-  [sql|
-    UPDATE posts
-    SET published = true
-    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
-  |]
-  (pid, author)
-  (Just $ author <> " published post " <> showText pid)
+publishPost
+  :: (HasLog m, DbAccess m)
+  => Author
+  -> Id
+  -> m AppResponse
+publishPost (Author author) (Id pid) = do
+  res <- M.publishPost author pid
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ author <> " published post " <> showText pid
+      return (AppOk J.Null)
 
-deletePost (UserName author) (PostId pid) = execOne
-  [sql|
-    DELETE FROM posts
-    WHERE id = ? AND author = (SELECT id FROM authors WHERE username = ?)
-  |]
-  (pid, author)
-  (Just $ author <> " deleted post " <> showText pid)
+deletePost
+  :: (HasLog m, DbAccess m)
+  => Author
+  -> Id
+  -> m AppResponse
+deletePost (Author author) (Id pid) = do
+  res <- M.deletePost author pid
+  case res of
+    Left _ -> return BadRequest
+    Right () -> do
+      log' Info $ author <> " deleted post " <> showText pid
+      return (AppOk J.Null)

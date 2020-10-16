@@ -2,7 +2,7 @@
 source ./common
 
 if [[ -z $1 ]]; then
-    query "get_categories"
+    query "getCategories"
 else
-    query "get_categories?cid=$1"
+    query "getCategories?cid=$1"
 fi
