@@ -4,21 +4,22 @@ module API.Categories where
 
 import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.App              ( HasEnv )
-import           App.Prototype.Database         ( DbAccess(..), paginate )
-import           App.Prototype.Log              ( HasLog(..)
-                                                , Priority(..)
+import           App.Prototype.Database         ( DbAccess(..)
+                                                , paginate
+                                                , unwrapRequest
                                                 )
+import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Auth             ( Admin(..) )
 import           Config                         ( Config )
-import           Misc                           ( readT
-                                                , readNullable
-                                                , showText
+import           Misc                           ( showText )
+import           Query.Common                   ( Id(..)
+                                                , Page(..)
                                                 )
-import           Query.Common                   ( Id(..), Page(..) )
 import           Query.FromQuery                ( FromQuery(..)
-                                                , liftMaybe
                                                 , param
+                                                , paramT
                                                 , opt
+                                                , optT
                                                 )
 import qualified Data.Aeson                    as J
 import qualified Model.Categories              as M
@@ -26,55 +27,46 @@ import qualified Model.Categories              as M
 newtype CategoryEssential = CategoryEssential M.CategoryEssential
 
 instance FromQuery CategoryEssential where
-  parseQuery = fmap CategoryEssential . M.CategoryEssential
+  parseQuery = fmap CategoryEssential $ M.CategoryEssential
     <$> param "name"
-    <*> (liftMaybe . maybe (Just Nothing) (fmap Just . readT) =<< opt "parent_id")
+    <*> paramT "parent_id"
 
 newtype CategoryPartial = CategoryPartial M.CategoryPartial
 
 instance FromQuery CategoryPartial where
-  parseQuery = fmap CategoryPartial . M.CategoryPartial
-    <$> opt "name"
-    <*> (liftMaybe . maybe (Just Nothing) (fmap Just . readNullable) =<< opt "parent_id")
+  parseQuery = fmap CategoryPartial $ M.CategoryPartial
+      <$> opt "name"
+      <*> optT "parent_id"
 
-getCategories :: (Monad m, DbAccess m, HasEnv Config m) => (Page, Maybe Id) -> m AppResponse
-getCategories (Page page, mbcid) = AppOk . paginate <$> M.getCategories (unId <$> mbcid) page
+getCategories :: (Monad m, DbAccess m, HasEnv Config m) => (Page, Id) -> m AppResponse
+getCategories (Page page, Id id) = AppOk . paginate <$> M.getCategories id page
 
 createCategory
   :: (HasLog m, DbAccess m)
   => Admin
   -> CategoryEssential
   -> m AppResponse
-createCategory (Admin admin) (CategoryEssential entity@(M.CategoryEssential {..})) = do
-  cid <- M.createCategory entity
-  case cid of
-    Left _ -> return BadRequest
-    Right cid -> do
-      log' Info (admin <> " created category " <> showText cid <> " '" <> name <> "'")
-      return . AppOk . J.Number . fromInteger . toInteger $ cid
+createCategory (Admin admin) (CategoryEssential entity@(M.CategoryEssential {..})) =
+  M.createCategory entity >>= unwrapRequest BadRequest
+    (J.Number . fromInteger . toInteger)
+    (Just $ \id -> admin <> " created category " <> showText id <> " '" <> name <> "'")
 
 editCategory
   :: (HasLog m, DbAccess m)
   => Admin
   -> (Id, CategoryPartial)
   -> m AppResponse
-editCategory (Admin admin) (Id cid, CategoryPartial entity@(M.CategoryPartial {..})) = do
-  res <- M.editCategory cid entity
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ admin <> " changed category " <> showText cid
-      return (AppOk J.Null)
+editCategory (Admin admin) (Id cid, CategoryPartial entity@(M.CategoryPartial {..})) =
+  M.editCategory cid entity >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ admin <> " changed category " <> showText cid)
 
 deleteCategory
   :: (HasLog m, DbAccess m)
   => Admin
   -> Id
   -> m AppResponse
-deleteCategory (Admin admin) (Id cid) = do
-  res <- M.deleteCategory cid
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ admin <> " deleted category " <> showText cid
-      return (AppOk J.Null)
+deleteCategory (Admin admin) (Id cid) =
+  M.deleteCategory cid >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ admin <> " deleted category " <> showText cid)

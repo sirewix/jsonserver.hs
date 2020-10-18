@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "editPost?pid=$1&title=$2&cid=$3&text=$4&image=$3&images=$5"
+query "editPost?id=$1&title=$2&category_id=$3&content=$4"

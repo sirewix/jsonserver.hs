@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "editCategory?name=$1&cid=$2"
+query "editCategory?name=$1&id=$2"

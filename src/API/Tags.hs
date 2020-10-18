@@ -8,10 +8,11 @@ module API.Tags where
 
 import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.App              ( HasEnv )
-import           App.Prototype.Database         ( DbAccess(..), paginate )
-import           App.Prototype.Log              ( HasLog(..)
-                                                , Priority(..)
+import           App.Prototype.Database         ( DbAccess(..)
+                                                , paginate
+                                                , unwrapRequest
                                                 )
+import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Auth             ( Admin(..) )
 import           Config                         ( Config )
 import           Misc                           ( showText )
@@ -38,26 +39,20 @@ createTag
   => Admin
   -> TagEssential
   -> m AppResponse
-createTag (Admin admin) (TagEssential entity@(M.TagEssential tag)) = do
-  res <- M.createTag entity
-  case res of
-    Left _ -> return BadRequest
-    Right id -> do
-      log' Info $ admin <> " created tag " <> showText id <> " '" <> tag <> "'"
-      return . AppOk . J.Number . fromInteger . toInteger $ id
+createTag (Admin admin) (TagEssential entity@(M.TagEssential tag)) =
+  M.createTag entity >>= unwrapRequest BadRequest
+    (J.Number . fromInteger . toInteger)
+    (Just $ \id -> admin <> " created tag " <> showText id <> " '" <> tag <> "'")
 
 editTag
   :: (DbAccess m, HasLog m)
   => Admin
   -> (Id, TagEssential)
   -> m AppResponse
-editTag (Admin admin) (Id id, TagEssential entity@(M.TagEssential tag)) = do
-  res <- M.editTag id entity
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ admin <> " changed tag " <> showText id <> " to '" <> tag <> "'"
-      return (AppOk J.Null)
+editTag (Admin admin) (Id id, TagEssential entity@(M.TagEssential tag)) =
+  M.editTag id entity >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ admin <> " changed tag " <> showText id <> " to '" <> tag <> "'")
 
 deleteTag
   :: (DbAccess m, HasLog m)
@@ -65,9 +60,6 @@ deleteTag
   -> Id
   -> m AppResponse
 deleteTag (Admin admin) (Id id) = do
-  res <- M.deleteTag id
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ admin <> " deleted tag " <> showText id
-      return (AppOk J.Null)
+  M.deleteTag id >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ admin <> " deleted tag " <> showText id)

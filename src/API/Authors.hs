@@ -9,9 +9,10 @@ module API.Authors where
 import           API.Users                      ( UserName(..) )
 import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.App              ( HasEnv )
-import           App.Prototype.Database         ( DbAccess(..), paginate )
-import           App.Prototype.Log              ( HasLog(..)
-                                                , Priority(..)
+import           App.Prototype.Log              ( HasLog(..) )
+import           App.Prototype.Database         ( DbAccess(..)
+                                                , paginate
+                                                , unwrapRequest
                                                 )
 import           App.Prototype.Auth             ( Admin(..) )
 import           Config                         ( Config )
@@ -48,31 +49,38 @@ instance FromQuery AuthorPartial where
     <$> opt "username"
     <*> opt "description"
 
+makeAuthor
+  :: (DbAccess m, HasLog m)
+  => Admin
+  -> AuthorEssential
+  -> m AppResponse
 makeAuthor (Admin admin) (AuthorEssential entity@M.AuthorEssential {..}) = do
-  res <- M.makeAuthor entity
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ admin <> " promoted " <> username <> " to authors with description \"" <> description <> "\""
-      return (AppOk J.Null)
+  M.makeAuthor entity >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ admin <> " promoted " <> username
+      <> " to authors with description \"" <> description <> "\"")
 
 newtype PreviousUserName = PreviousUserName Text
 
 instance FromQuery PreviousUserName where
   parseQuery = PreviousUserName <$> param "previous_username"
 
+editAuthor
+  :: (DbAccess m, HasLog m)
+  => Admin
+  -> (PreviousUserName, AuthorPartial)
+  -> m AppResponse
 editAuthor (Admin admin) (PreviousUserName prevName, AuthorPartial entity@M.AuthorPartial {..}) = do
-  res <- M.editAuthor prevName entity
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ admin <> " edited author " <> prevName
-      return (AppOk J.Null)
+  M.editAuthor prevName entity >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ admin <> " edited author " <> prevName)
 
+deleteAuthor
+  :: (DbAccess m, HasLog m)
+  => Admin
+  -> UserName
+  -> m AppResponse
 deleteAuthor (Admin admin) (UserName name) = do
-  res <- M.deleteAuthor name
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ admin <> " exiled " <> name <> " from authors guild"
-      return (AppOk J.Null)
+  M.deleteAuthor name >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ admin <> " exiled " <> name <> " from authors guild")

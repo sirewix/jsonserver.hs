@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "deattachTag?tag=$1&pid=$2"
+query "deattachTag?tag_id=$1&post_id=$2"

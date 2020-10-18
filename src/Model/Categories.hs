@@ -34,18 +34,18 @@ import           Misc                           ( fromJson )
 
 data CategoryEssential = CategoryEssential
   { name      :: Text
-  , parent_id :: Maybe Id
+  , parent_id :: Id
   } deriving (Generic, ToRow)
 
 data CategoryPartial = CategoryPartial
   { name      :: Maybe Text
-  , parent_id :: Maybe (Maybe Id)
+  , parent_id :: Maybe Id
   } deriving (Generic, ToRow)
 
 data CategoryFull = CategoryFull
   { id        :: Id
   , name      :: Text
-  , parent_id :: Maybe Id
+  , parent_id :: Id
   } deriving Generic
 
 instance FromJSON CategoryFull
@@ -53,24 +53,20 @@ instance ToJSON CategoryFull
 
 getCategories
   :: (DbAccess m, HasEnv Config m)
-  => Maybe Id
+  => Id
   -> Page
   -> m (Paged CategoryFull)
-getCategories mbParentId page = do
+getCategories parentId page = do
   pageSize <- categories . page_sizes <$> getEnv
-  let q = [sql|
-            SELECT
-              count(*) OVER(),
-              to_json(categories)
-            FROM categories WHERE
-          |]
-      cond = case mbParentId of
-        Just _  -> "parent_id = ?"
-        Nothing -> "parent_id is ?"
-  mapM (fromJson . fromOnly) =<< queryPaged
-    pageSize
-    (q <> " " <> cond <> " LIMIT ? OFFSET ?")
-    (mbParentId, limit pageSize, offset pageSize page)
+  mapM (fromJson . fromOnly) =<< queryPaged pageSize [sql|
+    SELECT
+      count(*) OVER(),
+      to_json(categories)
+    FROM categories
+    WHERE parent_id = ?
+    LIMIT ?
+    OFFSET ?
+  |] (parentId, limit pageSize, offset pageSize page)
 
 createCategory
   :: (DbAccess m)
@@ -86,7 +82,7 @@ editCategory
 editCategory id entity = execOne [sql|
     UPDATE categories
     SET name      = COALESCE (?, name),
-    SET parent_id = COALESCE (?, parent_id)
+        parent_id = COALESCE (?, parent_id)
     WHERE id = ?
   |] (entity :. [id])
 

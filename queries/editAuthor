@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "editAuthor?username=$1&description=$2"
+query "editAuthor?previous_username=$1&description=$2"

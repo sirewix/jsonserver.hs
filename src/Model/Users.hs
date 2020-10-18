@@ -72,7 +72,7 @@ getUsers page = do
               'lastname', lastName,
               'admin', admin,
               'avatar', avatar,
-              'registration_date', registrationDate
+              'registration_date', registration_date
           )
       FROM users
       LIMIT ?

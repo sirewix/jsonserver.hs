@@ -6,24 +6,21 @@ import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.App              ( HasEnv(..) )
 import           App.Prototype.Auth             ( Admin(..)
                                                 , Secrets )
-import           App.Prototype.Log              ( HasLog(..)
-                                                , Priority(..)
-                                                )
+import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Database         ( DbAccess
+                                                , unwrapRequest
                                                 , paginate
                                                 )
 import           Config                         ( Config(..) )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Char                      ( isAlphaNum )
 import           Data.Text                      ( Text )
-import           Misc                           ( readT )
 import           Query.Common                   ( Page(..) )
 import           Query.FromQuery                ( FromQuery(..)
                                                 , QueryParser
                                                 , param
                                                 , opt
                                                 , filterQuery
-                                                , liftMaybe
                                                 )
 import qualified Model.Users                   as M
 import qualified Data.Text                     as T
@@ -53,12 +50,9 @@ deleteUser
   -> UserName
   -> m AppResponse
 deleteUser (Admin admin) (UserName user) = do
-  res <- M.deleteUser user
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ admin <> " deleted user " <> user
-      return . AppOk $ J.Null
+  M.deleteUser user >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ admin <> " deleted user " <> user)
 
 data Register = Register
   { name     :: Text
@@ -73,7 +67,7 @@ instance FromQuery Register where
       <$> parseUserName
       <*> filterQuery ((<= 30) . T.length) (param "lastname")
       <*> parsePassword
-      <*> (liftMaybe . maybe (Just Nothing) (fmap Just . readT) =<< opt "avatar")
+      <*> opt "avatar"
 
 register
   :: (HasLog m, DbAccess m)
@@ -86,12 +80,9 @@ register (Register {..}) = do
         , M.admin    = False
         , M.avatar   = avatar
         }
-  res <- M.createUser entity password
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ "new user" <> name <> " " <> lastname
-      return (AppOk J.Null)
+  M.createUser entity password >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ "new user" <> name <> " " <> lastname)
 
 newtype Credentials = Credentials M.Credentials
 
@@ -110,9 +101,6 @@ login
   => Credentials
   -> m AppResponse
 login (Credentials creds@(M.Credentials {..})) = do
-  res <- M.getUserToken creds
-  case res of
-    Left _ -> return AccessDenied
-    Right token -> do
-      log' Info $ name <> " logged in"
-      return . AppOk $ J.String token
+  M.getUserToken creds >>= unwrapRequest  AccessDenied
+    J.String
+    (Just . const $ name <> " logged in")

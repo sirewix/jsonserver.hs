@@ -14,7 +14,6 @@ import           App.Prototype.Database         ( (:.)(..)
                                                 , Only(..)
                                                 , Paged
                                                 , Page
-                                                , Id
                                                 , execOne
                                                 , queryPaged
                                                 , limit
@@ -41,11 +40,7 @@ data AuthorPartial = AuthorPartial
   , description :: Maybe Text
   } deriving (Generic, ToRow)
 
-data AuthorFull = AuthorFull
-  { id          :: Id
-  , username    :: Text
-  , description :: Text
-  } deriving Generic
+type AuthorFull = AuthorEssential
 
 instance FromJSON AuthorFull
 instance ToJSON AuthorFull
@@ -62,7 +57,6 @@ getAuthors page = do
       SELECT
           count(*) OVER(),
           json_build_object (
-            'id', authors.id,
             'username', users.name,
             'description', authors.description
           )
@@ -92,7 +86,7 @@ editAuthor
 editAuthor username author = execOne [sql|
     UPDATE authors
     SET user_id = COALESCE ((SELECT id FROM users WHERE name = ?), user_id),
-    SET description = COALESCE (?, description)
+        description = COALESCE (?, description)
     WHERE user_id = (SELECT id FROM users WHERE name = ?)
   |] (author :. [username])
 
@@ -100,4 +94,8 @@ deleteAuthor
   :: (DbAccess m)
   => Text
   -> m (Either Text ())
-deleteAuthor username = execOne "DELETE FROM authors WHERE username = ?" [username]
+deleteAuthor username = execOne [sql|
+    DELETE
+    FROM authors
+    WHERE user_id = (SELECT id FROM users WHERE name = ?)
+  |] [username]

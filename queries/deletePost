@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "deletePost?pid=$1"
+query "deletePost?id=$1"

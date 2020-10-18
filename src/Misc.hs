@@ -19,10 +19,8 @@ readT :: Read a => Text -> Maybe a
 readT = readMaybe . unpack
 
 readNullable :: Read a => Text -> Maybe (Maybe a)
-readNullable text =
-  if text == "null"
-     then Just Nothing
-     else Just <$> readT text
+readNullable text | text == "null" = Just Nothing
+readNullable text = Just <$> readT text
 
 (?) :: Bool -> a -> a -> a
 (?) True  x _ = x

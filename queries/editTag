@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "editTag?tag=$1&name=$2"
+query "editTag?id=$1&tag=$2"

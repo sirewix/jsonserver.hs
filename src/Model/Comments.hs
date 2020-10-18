@@ -59,11 +59,11 @@ getComments pid page = do
       SELECT
           count(*) OVER(),
           json_build_object (
-              'id', id,
+              'id', comments.id,
               'comment', comment,
               'user', json_build_object(
                   'name', name,
-                  'lastname', last_name,
+                  'lastname', lastname,
                   'admin', admin,
                   'avatar', avatar,
                   'registration_date', registration_date
@@ -82,9 +82,9 @@ addComment
   => CommentEssential
   -> m (Either Text Id)
 addComment = queryOne [sql|
-    INSERT INTO comments (post, username, comment)
+    INSERT INTO comments (post, user_id, comment)
     VALUES (?, (SELECT id FROM users WHERE name = ?), ?)
-    RETURNING id"
+    RETURNING id
   |]
 
 deleteComment

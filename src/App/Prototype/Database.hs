@@ -21,12 +21,17 @@ module App.Prototype.Database
   , limit
   , offset
   , paginate
+  , unwrapRequest
   , queryOne
   , queryPaged
   , sql
   )
 where
 
+import           App.Response                   ( AppResponse(..) )
+import           App.Prototype.Log              ( HasLog(..)
+                                                , Priority(..)
+                                                )
 import           Control.Monad.Except           ( MonadError(..)
                                                 , liftEither
                                                 )
@@ -68,11 +73,21 @@ execOne
   => Query
   -> fq
   -> m (Either Text ())
-execOne q fq = execute q fq >>= either (return . Left) (f . (1 `compare`))
+execOne q fq = execute q fq >>= either (return . Left) (f . (`compare` 1))
   where f EQ = return $ Right ()
         f GT = throwError $ "sql execution affected more than one row (" <> textQuery <> ")"
         f LT = return $ Left $ "no rows affected (" <> textQuery <> ")"
         textQuery = decodeUtf8 (fromQuery q)
+
+unwrapRequest
+  :: (HasLog m, DbAccess m)
+  => AppResponse
+  -> (r -> J.Value)
+  -> Maybe (r -> Text)
+  -> Either Text r
+  -> m AppResponse
+unwrapRequest  err _wopes _msg (Left e) = log' Debug ("bad request: " <> e) >> return err
+unwrapRequest _err  wopes  msg (Right res) = mapM_ (log' Info . ($ res)) msg >> return (AppOk $ wopes res)
 
 data Paged r = Paged Int [r]
 
@@ -102,7 +117,6 @@ queryPaged pageSize q fq = fmap f . liftEither =<< query q fq
 paginate :: J.ToJSON a => Paged a -> J.Value
 paginate (Paged pages content) =
   J.object ["pages" .= pages, "content" .= J.toJSONList content]
-
 
 queryOne
   :: (DbAccess m, MonadError Text m, ToRow fq, FromField r)

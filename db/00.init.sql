@@ -16,8 +16,8 @@ CREATE TABLE users (
   , password         varchar (30)    NOT NULL
 );
 
-INSERT INTO users (id, name, lastname, admin, avatar, password) VALUES
-    (1, 'admin', 'Ivanov', true,  '/admin.png',  '123'),
+INSERT INTO users (name, lastname, admin, avatar, password) VALUES
+    ('admin', 'Ivanov', true,  '/admin.png',  '123');
 
 CREATE TABLE authors (
     id               serial          PRIMARY KEY
@@ -26,7 +26,7 @@ CREATE TABLE authors (
 );
 
 INSERT INTO authors (user_id, description) VALUES
-    (1, 'godfather'),
+    (1, 'godfather');
 
 CREATE TABLE categories (
     id               serial          PRIMARY KEY
@@ -34,6 +34,9 @@ CREATE TABLE categories (
   , parent_id        int             NULL REFERENCES categories (id) ON DELETE CASCADE
   , CHECK (parent_id <> id)
 );
+
+INSERT INTO categories (name, parent_id) VALUES
+    ('Root', NULL);
 
 CREATE TABLE tags (
     id               serial          PRIMARY KEY
@@ -70,28 +73,45 @@ CREATE FUNCTION category_root(int)
 RETURNS json
 LANGUAGE SQL IMMUTABLE
 AS $$
-SELECT json_agg(u) FROM (
-    WITH RECURSIVE x AS (
-        SELECT categories.* FROM categories WHERE id = $1
-        UNION ALL
-        SELECT categories.* FROM categories JOIN x ON x.parent_id = categories.id
-    ) SELECT id, name FROM x
-) AS u
+WITH RECURSIVE x AS (
+    SELECT categories.* FROM categories WHERE id = $1
+    UNION ALL
+    SELECT categories.* FROM categories JOIN x ON x.parent_id = categories.id
+) SELECT json_agg(x) FROM x WHERE parent_id IS NOT NULL;
+$$;
+
+DROP FUNCTION IF EXISTS tags_by_post;
+CREATE FUNCTION tags_by_post(int)
+RETURNS json
+LANGUAGE SQL IMMUTABLE
+AS $$
+    SELECT json_agg(tags)
+    FROM tag_post_relations
+    JOIN tags ON tag_post_relations.tag = tags.id
+    WHERE post = $1
+$$;
+
+DROP FUNCTION IF EXISTS author_id_by_username;
+CREATE FUNCTION author_id_by_username(text)
+RETURNS int
+LANGUAGE SQL IMMUTABLE
+AS $$
+    SELECT authors.id
+    FROM authors
+    JOIN users ON users.id = authors.user_id
+    WHERE users.name = $1
 $$;
 
 DROP VIEW IF EXISTS posts_view;
 CREATE MATERIALIZED VIEW posts_view AS
     SELECT
-        posts.id,
+        posts.id AS id,
         published,
-        posts.date,
-        posts.title,
-        posts.content,
-        users.name AS authorname,
         categories.name AS categoryname,
         categories.id AS categoryid,
         coalesce(array_length(posts.images, 1), 0) AS numberofimages,
-        array_agg (tag_post_relations.tag) AS tags,
+        array_agg (tag_post_relations.tag) AS tag_ids,
+        date AS date,
         json_build_object (
             'id',            posts.id,
             'title',         posts.title,
@@ -99,9 +119,12 @@ CREATE MATERIALIZED VIEW posts_view AS
             'content',       posts.content,
             'main_image',    posts.main_image,
             'images',        posts.images,
-            'author',        to_json(authors),
-            'category_tree', category_root(posts.category),
-            'tags',          json_agg (tags)
+            'author',        json_build_object (
+                                'username', users.name,
+                                'description', authors.description
+                             ),
+            'category_tree', COALESCE (category_root(posts.category), '[]'::json),
+            'tags',          COALESCE (tags_by_post(posts.id), '[]'::json)
         ) AS json
     FROM posts
     JOIN authors                 ON authors.id = posts.author
@@ -113,6 +136,5 @@ CREATE MATERIALIZED VIEW posts_view AS
         posts.id,
         authors.id,
         users.id,
-        tag_post_relations.post,
         categoryid,
         categoryname;

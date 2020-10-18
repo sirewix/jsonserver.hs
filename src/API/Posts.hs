@@ -7,11 +7,10 @@ module API.Posts where
 import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.Database         ( DbAccess(..)
                                                 , paginate
+                                                , unwrapRequest
                                                 , PGArray(..)
                                                 )
-import           App.Prototype.Log              ( HasLog(..)
-                                                , Priority(..)
-                                                )
+import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Auth             ( Author(..) )
 import           Misc                           ( readT
                                                 , showText
@@ -22,7 +21,9 @@ import           Query.Common                   ( Id(..)
 import           Query.FromQuery                ( FromQuery(..)
                                                 , liftMaybe
                                                 , param
+                                                , paramT
                                                 , opt
+                                                , optT
                                                 )
 import qualified Data.Aeson                    as J
 import qualified Model.Posts                   as M
@@ -35,12 +36,14 @@ post
 post (Id id) () = either (const BadRequest) (AppOk . J.toJSON) <$> M.getPublishedPost id
 
 getDraft
-  :: DbAccess m
+  :: (HasLog m, DbAccess m)
   => Author
   -> Id
   -> m AppResponse
 getDraft (Author author) (Id id) =
-  either (const BadRequest) (AppOk . J.toJSON) <$> M.getUnpublishedPost id author
+  M.getUnpublishedPost id author >>= unwrapRequest BadRequest
+    J.toJSON
+    Nothing
 
 getDrafts (Author author) (Page page) = AppOk . paginate <$> M.getDrafts author page
 
@@ -49,46 +52,37 @@ newtype PostEssential = PostEssential M.PostEssential
 instance FromQuery PostEssential where
   parseQuery = fmap PostEssential $ M.PostEssential
     <$> param "title"
-    <*> (liftMaybe . readT =<< param "category_id")
+    <*> paramT "category_id"
     <*> param "content"
     <*> param "main_image"
-    <*> (fmap PGArray . liftMaybe . readT =<< param "images")
+    <*> (PGArray <$> paramT "images")
 
 createPost
   :: (HasLog m, DbAccess m)
   => Author
   -> PostEssential
   -> m AppResponse
-createPost (Author author) (PostEssential entity@M.PostEssential{..}) = do
-  pid <- M.createPost author entity
-  case pid of
-    Left _ -> return BadRequest
-    Right pid -> do
-      log' Info $ author <> " created post " <> showText pid <> " titled '" <> title <> "'"
-      return . AppOk . J.Number . fromInteger . toInteger $ pid
+createPost (Author author) (PostEssential entity@M.PostEssential{..}) =
+  M.createPost author entity >>= unwrapRequest BadRequest
+    (J.Number . fromInteger . toInteger)
+    (Just $ \pid -> author <> " created post " <> showText pid <> " titled '" <> title <> "'")
 
 data TagPostRelation = TagPostRelation M.TagPostRelation
 
 instance FromQuery TagPostRelation where
   parseQuery = fmap TagPostRelation $ M.TagPostRelation
-    <$> (liftMaybe . readT =<< param "tag_id")
-    <*> (liftMaybe . readT =<< param "post_id")
+    <$> (paramT "tag_id")
+    <*> (paramT "post_id")
 
-attachTag (Author author) (TagPostRelation rel@M.TagPostRelation{..}) = do
-  res <- M.attachTag rel author
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ author <> " attached tag " <> showText tag_id <> " to post " <> showText post_id
-      return (AppOk J.Null)
+attachTag (Author author) (TagPostRelation rel@M.TagPostRelation{..}) =
+  M.attachTag rel author >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ author <> " attached tag " <> showText tag_id <> " to post " <> showText post_id)
 
-deattachTag (Author author) (TagPostRelation rel@M.TagPostRelation{..}) = do
-  res <- M.deattachTag rel author
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ author <> " deattached tag " <> showText tag_id <> " to post " <> showText post_id
-      return (AppOk J.Null)
+deattachTag (Author author) (TagPostRelation rel@M.TagPostRelation{..}) =
+  M.deattachTag rel author >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ author <> " deattached tag " <> showText tag_id <> " to post " <> showText post_id)
 
 newtype PostPartial = PostPartial M.PostPartial
 
@@ -97,7 +91,7 @@ instance FromQuery PostPartial where
     fmap PostPartial
       $   M.PostPartial
       <$> opt "title"
-      <*> (liftMaybe . maybe (Just Nothing) (fmap Just . readT) =<< opt "category_id")
+      <*> optT "category_id"
       <*> opt "content"
       <*> opt "main_image"
       <*> (   fmap (fmap PGArray)
@@ -111,36 +105,27 @@ editPost
   => Author
   -> (Id, PostPartial)
   -> m AppResponse
-editPost (Author author) (Id pid, PostPartial entity@M.PostPartial{..}) = do
-  res <- M.editPost author entity
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ author <> " edited post " <> showText pid
-      return (AppOk J.Null)
+editPost (Author author) (Id pid, PostPartial entity@M.PostPartial{..}) =
+  M.editPost pid author entity >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ author <> " edited post " <> showText pid)
 
 publishPost
   :: (HasLog m, DbAccess m)
   => Author
   -> Id
   -> m AppResponse
-publishPost (Author author) (Id pid) = do
-  res <- M.publishPost author pid
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ author <> " published post " <> showText pid
-      return (AppOk J.Null)
+publishPost (Author author) (Id pid) =
+  M.publishPost author pid >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ author <> " published post " <> showText pid)
 
 deletePost
   :: (HasLog m, DbAccess m)
   => Author
   -> Id
   -> m AppResponse
-deletePost (Author author) (Id pid) = do
-  res <- M.deletePost author pid
-  case res of
-    Left _ -> return BadRequest
-    Right () -> do
-      log' Info $ author <> " deleted post " <> showText pid
-      return (AppOk J.Null)
+deletePost (Author author) (Id pid) =
+  M.deletePost author pid >>= unwrapRequest BadRequest
+    (const J.Null)
+    (Just . const $ author <> " deleted post " <> showText pid)

@@ -4,5 +4,5 @@ source ./common
 if [[ -z $2 ]]; then
     query "createCategory?name=$1"
 else
-    query "createCategory?name=$1&cid=$2"
+    query "createCategory?name=$1&parent_id=$2"
 fi

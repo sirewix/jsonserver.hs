@@ -8,6 +8,7 @@ module API.Search (posts) where
 
 import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.App              ( HasEnv(..) )
+import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Database         ( DbAccess(..)
                                                 , paginate
                                                 )
@@ -73,7 +74,7 @@ instance FromQuery Sort where
     <*> (fromMaybe False <$> optT "sort_reversed")
 
 posts
-  :: (DbAccess m, HasEnv Config m)
+  :: (DbAccess m, HasEnv Config m, HasLog m)
   => (Search, Page)
   -> m AppResponse
 posts (Search{..}, Page page) = AppOk . paginate <$> M.search

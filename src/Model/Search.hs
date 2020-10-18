@@ -7,7 +7,9 @@
 module Model.Search where
 
 import           App.Prototype.App              ( HasEnv(..) )
+import           App.Prototype.Log              ( HasLog(..), Priority(..) )
 import           App.Prototype.Database         ( DbAccess(..)
+                                                , Query(..)
                                                 , Id
                                                 , PGArray(..)
                                                 , Only(..)
@@ -22,10 +24,10 @@ import           Config                         ( Config(..)
                                                 , PageSizes(..)
                                                 )
 import           Data.Date                      ( Date(..) )
-import           Data.Maybe                     ( isNothing )
 import           Data.Text                      ( Text )
-import           Misc                           ( (?), fromJson )
+import           Misc                           ( fromJson )
 import           Model.Posts                    ( PostFull )
+import           Data.Text.Encoding             ( decodeUtf8 )
 
 
 data Sort = Sort SortBy Bool
@@ -44,7 +46,7 @@ data CreatedAt =
   | CreatedAtRange (Maybe Date) (Maybe Date)
 
 search
-  :: (DbAccess m, HasEnv Config m)
+  :: (DbAccess m, HasEnv Config m, HasLog m)
   => Page
   -> Sort
   -> TagsInAll
@@ -66,30 +68,36 @@ search
   mbContent
   mbEverywhere
   = do
-  let q = "SELECT count(*) OVER(), json FROM posts_view " <> mbjoin <> [sql|
-           WHERE
-               published = true
-           AND COALESCE (authorname =      ?, true)
-           AND COALESCE (categoryid =      ?, true)
-           AND COALESCE (title ~~*         ?, true)
-           AND COALESCE (content ~~*       ?, true)
+  let q = [sql|
+          SELECT DISTINCT ON (posts_view.id) count(*) OVER(), json
+          FROM posts_view
+          LEFT JOIN tag_post_relations ON post = posts_view.id
+          LEFT JOIN tags ON tags.id = tag_post_relations.tag
+          WHERE
+              published = true
+          AND COALESCE ((json->'author'->>'username') = ?, true)
+          AND COALESCE (categoryid =                    ?, true)
+          AND COALESCE ((json->>'title') ~~*            ?, true)
+          AND COALESCE ((json->>'content') ~~*          ?, true)
 
-           AND COALESCE (tags @>           ?, true)
-           AND COALESCE (tags &&           ?, true)
+          AND COALESCE (posts_view.tag_ids @>           ?, true)
+          AND COALESCE (posts_view.tag_ids &&           ?, true)
 
-           AND COALESCE (date =            ?, true)
-           AND COALESCE (date >            ?, true)
-           AND COALESCE (date <            ?, true)
+          AND COALESCE (date =                          ?, true)
+          AND COALESCE (date >                          ?, true)
+          AND COALESCE (date <                          ?, true)
 
-           OR ( COALESCE (content ~~*      ?, false)
-             OR COALESCE (title ~~*        ?, false)
-             OR COALESCE (authorname ~~*   ?, false)
-             OR COALESCE (categoryname ~~* ?, false)
-             OR COALESCE (tags.tag ~~*     ?, false)
-              )
-           |]
-           <> orderBy sortBy
-           <> " LIMIT ? OFFSET ? "
+          AND( COALESCE ((json->>'content') ~~*            ?, true)
+            OR COALESCE ((json->>'title') ~~*              ?, true)
+            OR COALESCE ((json->'author'->>'username') ~~* ?, true)
+            OR COALESCE (categoryname ~~*                  ?, true)
+            OR COALESCE (COALESCE(tags.tag, '') ~~*        ?, true)
+             )
+          ORDER BY posts_view.id,
+          |]
+          <> orderBy sortBy
+          <> " LIMIT ? OFFSET ? "
+  log' Debug $ "Build query: " <> decodeUtf8 (fromQuery q)
   pageSize <- posts . page_sizes <$> getEnv
   mapM (fromJson . fromOnly) =<< queryPaged pageSize q
       ( mbAuthor
@@ -97,8 +105,8 @@ search
       , anywhere <$> mbTitle
       , anywhere <$> mbContent
 
-      , PGArray tagsIn
-      , PGArray tagsAll
+      , PGArray <$> nullify tagsIn
+      , PGArray <$> nullify tagsAll
 
       , dateEq
       , dateGt
@@ -114,43 +122,18 @@ search
       , offset pageSize page
       )
  where
+  nullify list = if null list then Nothing else Just list
   search = anywhere <$> mbEverywhere
   (dateEq, dateGt, dateLt) =
     case createdAt of
       CreatedAt date -> (Just date, Nothing, Nothing)
       CreatedAtRange from to -> (Nothing, from, to)
   anywhere text = "%" <> text <> "%"
-  mbjoin = isNothing mbEverywhere ? "" $ [sql|
-        LEFT JOIN tag_post_relations ON post = posts_view.id
-        LEFT JOIN tags ON tags.id = tag_post_relations.tag
-    |]
 
-orderBy (Sort sort rev) = " ORDER BY " <> f sort <> if rev then " ASC " else " DESC "
+orderBy (Sort sort rev) = f sort <> if rev then " ASC " else " DESC "
   where
     f ByDate           = "date"
-    f ByAuthor         = "authorname"
+    f ByAuthor         = "(json->'author'->>'username')"
     f ByCategory       = "categoryname"
     f ByNumberOfImages = "numberofimages"
 
-  {-
-
-instance FromQuery CreatedAt where
-    parseQuery q =
-            CreatedAt <$> (readT =<< "created_at" .: q)
-        <|> Just (CreatedAtRange
-                (readT =<< "created_at__gt" .: q)
-                (readT =<< "created_at__lt" .: q))
-
-instance FromQuery TagsInAll where
-  parseQuery q = Just $ TagsInAll
-    (fromMaybe [] $ readT =<< ("tags__in" .: q))
-    (let tags  = fromMaybe [] (readT =<< ("tags__all" .: q))
-         mbtag = maybeToList (readT =<< "tag" .: q)
-      in tags ++ mbtag)
-
-instance FromQuery Sort where
-  parseQuery q = Sort
-    <$> (readT =<< param "sort")
-    <*> Just (isJust (opt "sort_reversed"))
-
-    -}

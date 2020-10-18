@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "deleteCategory?cid=$1"
+query "deleteCategory?id=$1"

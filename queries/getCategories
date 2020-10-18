@@ -1,8 +1,5 @@
 #!/bin/sh
 source ./common
 
-if [[ -z $1 ]]; then
-    query "getCategories"
-else
-    query "getCategories?cid=$1"
-fi
+p=$(default 1 ${2})
+query "getCategories?id=${1}&page=${p}"

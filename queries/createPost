@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "createPost?title=$1&cid=$2&text=$3&image=$4&images=%5B%5D"
+query "createPost?title=$1&category_id=$2&content=$3&main_image=$4&images=%5B%5D"

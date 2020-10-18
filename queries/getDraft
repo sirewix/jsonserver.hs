@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "getPost?pid=$1"
+query "getDraft?id=$1"

@@ -97,6 +97,9 @@ entry req = do
 
     _                         -> return NotFound
  where
+  fromQuery :: FromQuery q => Maybe q
+  fromQuery = unQueryParser parseQuery (queryString req)
+
   admin :: (FromQuery q, App m) => (Admin -> q -> m AppResponse) -> m AppResponse
   admin  = needToken Admin (Just "admin")
 
@@ -112,18 +115,19 @@ entry req = do
     -> Maybe Text
     -> (r -> q -> m AppResponse)
     -> m AppResponse
-  needToken role claim f = case unQueryParser parseQuery (queryString req) of
-    Just (Just (Token token), q) -> do
+  needToken role claim f = do
+    config <- getEnv
+    if backdoor config
+       then proceedWithQuery (f $ role "admin")
+       else maybe (return NotFound) proceedWithToken fromQuery
+   where
+    proceedWithQuery f = maybe (return BadRequest) f fromQuery
+    proceedWithToken (Token token) = do
       jwt <- verifyJWT claim token <$> runJWT
       case jwt of
-        JWTOk username -> f (role username) q
+        JWTOk username -> proceedWithQuery (f $ role username)
         JWTExp         -> return TokenExpired
         JWTReject      -> return NotFound
-    Just (Nothing, q) -> getEnv >>= \config ->
-      if backdoor config
-         then f (role "admin") q
-         else return NotFound
-    Nothing -> return NotFound
 
   path which x f = maybe (return BadRequest) (which . f) (readT x)
 
@@ -131,7 +135,7 @@ entry req = do
     :: (FromQuery q, App m)
     => (q -> m AppResponse)
     -> m AppResponse
-  public f = maybe (return BadRequest) f (unQueryParser parseQuery $ queryString req)
+  public f = maybe (return BadRequest) f fromQuery
 
 dbrefresh :: (Functor m, DbAccess m) => m ()
 dbrefresh = void $ execute "REFRESH MATERIALIZED VIEW posts_view;" ()

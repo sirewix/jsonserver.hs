@@ -1,4 +1,4 @@
 #!/bin/sh
 source ./common
 
-query "deleteTag?tag=$1"
+query "deleteTag?id=$1"
