@@ -42,6 +42,10 @@ parsePassword =
     filterQuery ((\l -> l >= 3 && l <= 30) . T.length)
   $ param "password"
 
+getUsers
+  :: (HasLog m, DbAccess m, HasEnv Config m)
+  => Page
+  -> m AppResponse
 getUsers (Page page) = AppOk . paginate <$> M.getUsers page
 
 deleteUser

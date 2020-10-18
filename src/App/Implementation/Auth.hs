@@ -84,6 +84,8 @@ verifyJWT need jwt (_, now, keys) = do
   lc cs c = J.parseMaybe J.parseJSON =<< Map.lookup c (unClaimsMap $ unregisteredClaims cs)
   mb = maybe JWTReject JWTOk
 
+generateSecret :: IO Signer
 generateSecret = hmacSecret . pack <$> replicateM 30 randomIO
 
+updateSecrets :: Secrets -> IO ()
 updateSecrets secrets = modifyMVar_ secrets $ \secrets -> (: init secrets) <$> generateSecret

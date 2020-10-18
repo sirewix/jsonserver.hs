@@ -130,6 +130,7 @@ search
       CreatedAtRange from to -> (Nothing, from, to)
   anywhere text = "%" <> text <> "%"
 
+orderBy :: Sort -> Query
 orderBy (Sort sort rev) = f sort <> if rev then " ASC " else " DESC "
   where
     f ByDate           = "date"

@@ -4,6 +4,7 @@
 
 module API.Posts where
 
+import           App.Prototype.App              ( HasEnv )
 import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.Database         ( DbAccess(..)
                                                 , paginate
@@ -12,6 +13,7 @@ import           App.Prototype.Database         ( DbAccess(..)
                                                 )
 import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Auth             ( Author(..) )
+import           Config                         ( Config )
 import           Misc                           ( readT
                                                 , showText
                                                 )
@@ -45,6 +47,11 @@ getDraft (Author author) (Id id) =
     J.toJSON
     Nothing
 
+getDrafts
+  :: (HasLog m, DbAccess m, HasEnv Config m)
+  => Author
+  -> Page
+  -> m AppResponse
 getDrafts (Author author) (Page page) = AppOk . paginate <$> M.getDrafts author page
 
 newtype PostEssential = PostEssential M.PostEssential
@@ -74,11 +81,21 @@ instance FromQuery TagPostRelation where
     <$> (paramT "tag_id")
     <*> (paramT "post_id")
 
+attachTag
+  :: (HasLog m, DbAccess m)
+  => Author
+  -> TagPostRelation
+  -> m AppResponse
 attachTag (Author author) (TagPostRelation rel@M.TagPostRelation{..}) =
   M.attachTag rel author >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ author <> " attached tag " <> showText tag_id <> " to post " <> showText post_id)
 
+deattachTag
+  :: (HasLog m, DbAccess m)
+  => Author
+  -> TagPostRelation
+  -> m AppResponse
 deattachTag (Author author) (TagPostRelation rel@M.TagPostRelation{..}) =
   M.deattachTag rel author >>= unwrapRequest BadRequest
     (const J.Null)

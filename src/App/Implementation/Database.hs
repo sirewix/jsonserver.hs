@@ -40,6 +40,7 @@ postgresqlQuery q fq = do
   DbEnv conn <- getEnv
   liftEither =<< liftIO ((Right . Right <$> DB.query conn q fq) `catches` defaultDbHandlers)
 
+defaultDbHandlers :: [Handler (Either Text (Either Text b))]
 defaultDbHandlers =
   [ Handler (\(e :: FormatError) -> return . Left . pack $ fmtMessage e )
   , Handler (\(e :: ResultError) -> return . Left . pack $ showResultError e)
@@ -50,6 +51,7 @@ defaultDbHandlers =
     )
   ]
 
+showResultError :: ResultError -> String
 showResultError (DB.Incompatible     sqlType _ _     hType msg) = "sql incompatible: " <> msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
 showResultError (DB.UnexpectedNull   _       _ field _     msg) = "sql unexpected null: " <> msg <> " @ " <> field
 showResultError (DB.ConversionFailed sqlType _ _     hType msg) = "sql conversion failed" <> msg <> " (" <> hType <> " ~ " <> sqlType <> ")"
