@@ -75,12 +75,12 @@ createPost (Author author) (PostEssential entity@M.PostEssential{..}) =
     J.toJSON
     (Just $ \pid -> author <> " created post " <> showText pid <> " titled '" <> title <> "'")
 
-data TagPostRelation = TagPostRelation M.TagPostRelation
+newtype TagPostRelation = TagPostRelation M.TagPostRelation
 
 instance FromQuery TagPostRelation where
   parseQuery = fmap TagPostRelation $ M.TagPostRelation
-    <$> (paramT "tag_id")
-    <*> (paramT "post_id")
+    <$> paramT "tag_id"
+    <*> paramT "post_id"
 
 attachTag
   :: (HasLog m, DbAccess m)

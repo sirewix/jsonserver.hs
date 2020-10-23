@@ -68,13 +68,13 @@ createTag = queryOne "INSERT INTO tags (tag) VALUES (?) RETURNING id"
 
 editTag
   :: (DbAccess m)
-  => (Id Tag)
+  => Id Tag
   -> TagEssential
   -> m (Either Text ())
 editTag id tag = execOne "UPDATE tags SET tag = ? WHERE id = ?" (tag :. [id])
 
 deleteTag
   :: (DbAccess m)
-  => (Id Tag)
+  => Id Tag
   -> m (Either Text ())
 deleteTag id = execOne "DELETE FROM tags WHERE id = ?" [id]

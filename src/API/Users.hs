@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module API.Users where
 
 import           App.Response                   ( AppResponse(..) )
@@ -77,7 +75,7 @@ register
   :: (HasLog m, DbAccess m)
   => Register
   -> m AppResponse
-register (Register {..}) = do
+register Register {..} = do
   let entity = M.UserEssential
         { M.name     = name
         , M.lastname = lastname
@@ -104,7 +102,7 @@ login
      )
   => Credentials
   -> m AppResponse
-login (Credentials creds@(M.Credentials {..})) = do
+login (Credentials creds@M.Credentials {..}) = do
   M.getUserToken creds >>= unwrapRequest  AccessDenied
     J.String
     (Just . const $ name <> " logged in")

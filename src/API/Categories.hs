@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module API.Categories where
 
 import           App.Response                   ( AppResponse(..) )
@@ -47,9 +45,9 @@ createCategory
   => Admin
   -> CategoryEssential
   -> m AppResponse
-createCategory (Admin admin) (CategoryEssential entity@(M.CategoryEssential {..})) =
+createCategory (Admin admin) (CategoryEssential entity@M.CategoryEssential {..}) =
   M.createCategory entity >>= unwrapRequest BadRequest
-    (J.toJSON)
+    J.toJSON
     (Just $ \id -> admin <> " created category " <> showText id <> " '" <> name <> "'")
 
 editCategory
@@ -57,7 +55,7 @@ editCategory
   => Admin
   -> (QueryId Category, CategoryPartial)
   -> m AppResponse
-editCategory (Admin admin) (QueryId cid, CategoryPartial entity@(M.CategoryPartial {..})) =
+editCategory (Admin admin) (QueryId cid, CategoryPartial entity@M.CategoryPartial {..}) =
   M.editCategory cid entity >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ admin <> " changed category " <> showText cid)

@@ -1,7 +1,6 @@
 {-# LANGUAGE
     DeriveAnyClass
   , DeriveGeneric
-  , TypeSynonymInstances
   #-}
 
 module Query.Common where
@@ -19,7 +18,7 @@ import           Query.FromQuery                ( FromQuery(..)
 newtype QueryId a = QueryId { getQueryId :: Id a }
 
 instance FromQuery (QueryId a) where
-  parseQuery = fmap QueryId $ fmap Id
+  parseQuery = fmap (QueryId . Id)
     . filterQuery (> 0)
     $ liftMaybe . readT =<< param "id"
 

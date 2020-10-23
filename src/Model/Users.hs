@@ -106,7 +106,7 @@ getUserToken
      )
   => Credentials
   -> m (Either Text Text)
-getUserToken (creds@Credentials {..}) = do
+getUserToken creds@Credentials {..} = do
   res <- query [sql|
     SELECT users.admin, authors.id
       FROM users

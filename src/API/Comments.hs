@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module API.Comments where
 
 import           App.Response                   ( AppResponse(..) )
@@ -52,7 +50,7 @@ addComment
   => User
   -> NewComment
   -> m AppResponse
-addComment (User user) (NewComment {..}) = do
+addComment (User user) NewComment {..} = do
   let entity = M.CommentEssential
         { M.post_id = post_id
         , M.username = user

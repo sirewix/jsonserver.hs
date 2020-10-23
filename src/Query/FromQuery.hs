@@ -32,7 +32,7 @@ instance Applicative QueryParser where
     return (a b)
 
 instance Monad QueryParser where
-  QueryParser a >>= f = QueryParser $ \q -> (a q) >>= ($ q) . unQueryParser . f
+  QueryParser a >>= f = QueryParser $ \q -> a q >>= ($ q) . unQueryParser . f
 
 instance Alternative QueryParser where
   empty = QueryParser (const Nothing)
@@ -63,7 +63,7 @@ instance FromQuery () where
   parseQuery = pure ()
 
 instance FromQuery a => FromQuery (Maybe a) where
-  parseQuery = QueryParser $ Just . (unQueryParser parseQuery)
+  parseQuery = QueryParser $ Just . unQueryParser parseQuery
 
 instance (FromQuery a, FromQuery b) => FromQuery (a, b) where
   parseQuery = (,)
