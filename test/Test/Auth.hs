@@ -12,11 +12,18 @@ import           Test.QuickCheck                ( ASCIIString(..)
                                                 )
 import           Web.JWT                        ( hmacSecret )
 
+testAuth :: IO ()
 testAuth = do
   signedCheck "verification"            testVerification
   signedCheck "verification expiration" testExpiration
   signedCheck "verification claims"     testClaims
 
+testVerification
+  :: ( ASCIIString
+     , ASCIIString
+     , ASCIIString
+     )
+  -> Bool
 testVerification
   ( ASCIIString name
   , ASCIIString secret1
@@ -29,6 +36,16 @@ testVerification
                 then JWTOk $ pack name
                 else JWTReject
 
+testExpiration
+  :: ( Bool
+     , Bool
+     , ASCIIString
+     , ASCIIString
+     , Positive Integer
+     , Positive Integer
+     , Positive Integer
+     )
+  -> Bool
 testExpiration
   ( admin
   , author
@@ -48,6 +65,13 @@ testExpiration
                 then JWTOk $ pack name
                 else JWTExp
 
+testClaims
+  :: ( Bool
+     , Bool
+     , ASCIIString
+     , ASCIIString
+     )
+  -> Bool
 testClaims
   ( admin
   , author
