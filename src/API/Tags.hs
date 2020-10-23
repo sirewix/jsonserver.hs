@@ -16,7 +16,8 @@ import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Auth             ( Admin(..) )
 import           Config                         ( Config )
 import           Misc                           ( showText )
-import           Query.Common                   ( Id(..), Page(..) )
+import           Model.Tags                     ( Tag )
+import           Query.Common                   ( QueryId(..), Page(..) )
 import           Query.FromQuery                ( FromQuery(..)
                                                 , param
                                                 )
@@ -41,15 +42,15 @@ createTag
   -> m AppResponse
 createTag (Admin admin) (TagEssential entity@(M.TagEssential tag)) =
   M.createTag entity >>= unwrapRequest BadRequest
-    (J.Number . fromInteger . toInteger)
+    J.toJSON
     (Just $ \id -> admin <> " created tag " <> showText id <> " '" <> tag <> "'")
 
 editTag
   :: (DbAccess m, HasLog m)
   => Admin
-  -> (Id, TagEssential)
+  -> (QueryId Tag, TagEssential)
   -> m AppResponse
-editTag (Admin admin) (Id id, TagEssential entity@(M.TagEssential tag)) =
+editTag (Admin admin) (QueryId id, TagEssential entity@(M.TagEssential tag)) =
   M.editTag id entity >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ admin <> " changed tag " <> showText id <> " to '" <> tag <> "'")
@@ -57,9 +58,9 @@ editTag (Admin admin) (Id id, TagEssential entity@(M.TagEssential tag)) =
 deleteTag
   :: (DbAccess m, HasLog m)
   => Admin
-  -> Id
+  -> QueryId Tag
   -> m AppResponse
-deleteTag (Admin admin) (Id id) = do
+deleteTag (Admin admin) (QueryId id) = do
   M.deleteTag id >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ admin <> " deleted tag " <> showText id)

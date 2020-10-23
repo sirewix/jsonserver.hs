@@ -5,6 +5,7 @@ module API.Comments where
 import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.App              ( HasEnv )
 import           App.Prototype.Database         ( DbAccess(..)
+                                                , Id
                                                 , paginate
                                                 , unwrapRequest
                                                 )
@@ -15,7 +16,9 @@ import           App.Prototype.Auth             ( Admin(..)
 import           Config                         ( Config )
 import           Data.Text                      ( Text )
 import           Misc                           ( showText )
-import           Query.Common                   ( Id(..)
+import           Model.Posts                    ( Post )
+import           Model.Comments                 ( Comment )
+import           Query.Common                   ( QueryId(..)
                                                 , Page(..)
                                                 )
 import           Query.FromQuery                ( FromQuery(..)
@@ -29,42 +32,42 @@ import qualified Model.Comments                as M
 
 getComments
   :: (Monad m, DbAccess m, HasEnv Config m)
-  => Id
+  => QueryId Post
   -> Page
   -> m AppResponse
-getComments (Id pid) (Page page) = AppOk . paginate <$> M.getComments pid page
+getComments (QueryId pid) (Page page) = AppOk . paginate <$> M.getComments pid page
 
-data Comment = Comment
-  { post_id :: Int
+data NewComment = NewComment
+  { post_id :: Id Post
   , comment :: Text
   }
 
-instance FromQuery Comment where
-  parseQuery = Comment
+instance FromQuery NewComment where
+  parseQuery = NewComment
     <$> paramT "post_id"
     <*> filterQuery (not . T.null) (param "comment")
 
 addComment
   :: (HasLog m, DbAccess m)
   => User
-  -> Comment
+  -> NewComment
   -> m AppResponse
-addComment (User user) (Comment {..}) = do
+addComment (User user) (NewComment {..}) = do
   let entity = M.CommentEssential
         { M.post_id = post_id
         , M.username = user
         , M.comment = comment
         }
   M.addComment entity >>= unwrapRequest BadRequest
-    (J.Number . fromInteger . toInteger)
+    J.toJSON
     (Just $ \id -> user <> " added comment " <> showText id <> " to post " <> showText post_id)
 
 deleteComment
   :: (HasLog m, DbAccess m)
   => Admin
-  -> Id
+  -> QueryId Comment
   -> m AppResponse
-deleteComment (Admin user) (Id id) = do
+deleteComment (Admin user) (QueryId id) = do
   M.deleteComment id >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ user <> " deleted comment " <> showText id)

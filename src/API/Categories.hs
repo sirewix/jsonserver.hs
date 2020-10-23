@@ -12,7 +12,8 @@ import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Auth             ( Admin(..) )
 import           Config                         ( Config )
 import           Misc                           ( showText )
-import           Query.Common                   ( Id(..)
+import           Model.Categories               ( Category )
+import           Query.Common                   ( QueryId(..)
                                                 , Page(..)
                                                 )
 import           Query.FromQuery                ( FromQuery(..)
@@ -38,8 +39,8 @@ instance FromQuery CategoryPartial where
       <$> opt "name"
       <*> optT "parent_id"
 
-getCategories :: (Monad m, DbAccess m, HasEnv Config m) => (Page, Id) -> m AppResponse
-getCategories (Page page, Id id) = AppOk . paginate <$> M.getCategories id page
+getCategories :: (Monad m, DbAccess m, HasEnv Config m) => (Page, QueryId Category) -> m AppResponse
+getCategories (Page page, QueryId id) = AppOk . paginate <$> M.getCategories id page
 
 createCategory
   :: (HasLog m, DbAccess m)
@@ -48,15 +49,15 @@ createCategory
   -> m AppResponse
 createCategory (Admin admin) (CategoryEssential entity@(M.CategoryEssential {..})) =
   M.createCategory entity >>= unwrapRequest BadRequest
-    (J.Number . fromInteger . toInteger)
+    (J.toJSON)
     (Just $ \id -> admin <> " created category " <> showText id <> " '" <> name <> "'")
 
 editCategory
   :: (HasLog m, DbAccess m)
   => Admin
-  -> (Id, CategoryPartial)
+  -> (QueryId Category, CategoryPartial)
   -> m AppResponse
-editCategory (Admin admin) (Id cid, CategoryPartial entity@(M.CategoryPartial {..})) =
+editCategory (Admin admin) (QueryId cid, CategoryPartial entity@(M.CategoryPartial {..})) =
   M.editCategory cid entity >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ admin <> " changed category " <> showText cid)
@@ -64,9 +65,9 @@ editCategory (Admin admin) (Id cid, CategoryPartial entity@(M.CategoryPartial {.
 deleteCategory
   :: (HasLog m, DbAccess m)
   => Admin
-  -> Id
+  -> QueryId Category
   -> m AppResponse
-deleteCategory (Admin admin) (Id cid) =
+deleteCategory (Admin admin) (QueryId cid) =
   M.deleteCategory cid >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ admin <> " deleted category " <> showText cid)

@@ -10,7 +10,7 @@ module Model.Posts where
 import           App.Prototype.App              ( HasEnv(..) )
 import           App.Prototype.Database         ( (:.)(..)
                                                 , DbAccess(..)
-                                                , Id
+                                                , Id(..)
                                                 , PGArray(..)
                                                 , Only(..)
                                                 , Page
@@ -33,13 +33,19 @@ import           Data.Date                      ( Date(..) )
 import           Data.Text                      ( Text )
 import           GHC.Generics                   ( Generic )
 import           Misc                           ( fromJson )
-import           Model.Categories               ( CategoryFull )
-import           Model.Tags                     ( TagFull )
+import           Model.Categories               ( Category
+                                                , CategoryFull
+                                                )
+import           Model.Tags                     ( Tag
+                                                , TagFull
+                                                )
 import           Model.Authors                  ( AuthorFull )
+
+data Post
 
 data PostEssential = PostEssential
   { title       :: Text
-  , category_id :: Int
+  , category_id :: Id Category
   , content     :: Text
   , main_image  :: Text
   , images      :: PGArray Text
@@ -47,7 +53,7 @@ data PostEssential = PostEssential
 
 data PostPartial = PostPartial
   { title       :: Maybe Text
-  , category_id :: Maybe Int
+  , category_id :: Maybe (Id Category)
   , content     :: Maybe Text
   , main_image  :: Maybe Text
   , images      :: Maybe (PGArray Text)
@@ -55,7 +61,7 @@ data PostPartial = PostPartial
 
 
 data PostFull = PostFull
-  { id            :: Id
+  { id            :: Id Post
   , title         :: Text
   , date          :: Date
   , category_tree :: [CategoryFull]
@@ -71,7 +77,7 @@ instance ToJSON PostFull
 
 getPublishedPost
   :: DbAccess m
-  => Id
+  => Id Post
   -> m (Either Text PostFull)
 getPublishedPost pid = mapM fromJson =<< queryOne [sql|
     SELECT json
@@ -81,7 +87,7 @@ getPublishedPost pid = mapM fromJson =<< queryOne [sql|
 
 getUnpublishedPost
   :: DbAccess m
-  => Id
+  => Id Post
   -> Text
   -> m (Either Text PostFull)
 getUnpublishedPost pid author = mapM fromJson =<< queryOne [sql|
@@ -114,7 +120,7 @@ createPost
   :: (DbAccess m)
   => Text
   -> PostEssential
-  -> m (Either Text Id)
+  -> m (Either Text (Id Post))
 createPost author entity = queryOne [sql|
     INSERT INTO posts (title, category, content, main_image, images, author)
     VALUES (?, ?, ?, ?, ?, author_id_by_username(?))
@@ -122,8 +128,8 @@ createPost author entity = queryOne [sql|
   |] (entity :. [author])
 
 data TagPostRelation = TagPostRelation
-  { tag_id  :: Id
-  , post_id :: Id
+  { tag_id  :: Id Tag
+  , post_id :: Id Post
   } deriving (Generic, ToRow)
 
 attachTag
@@ -158,7 +164,7 @@ deattachTag relation author = execOne
 
 editPost
   :: DbAccess m
-  => Id
+  => Id Post
   -> Text
   -> PostPartial
   -> m (Either Text ())
@@ -176,7 +182,7 @@ editPost id author entity = execOne
 publishPost
   :: DbAccess m
   => Text
-  -> Id
+  -> Id Post
   -> m (Either Text ())
 publishPost author pid = execOne
   [sql|
@@ -188,7 +194,7 @@ publishPost author pid = execOne
 deletePost
   :: DbAccess m
   => Text
-  -> Id
+  -> Id Post
   -> m (Either Text ())
 deletePost author pid = execOne
   [sql|

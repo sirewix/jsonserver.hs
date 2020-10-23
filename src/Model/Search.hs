@@ -27,6 +27,8 @@ import           Data.Date                      ( Date(..) )
 import           Data.Text                      ( Text )
 import           Misc                           ( fromJson )
 import           Model.Posts                    ( PostFull )
+import           Model.Categories               ( Category )
+import           Model.Tags                     ( Tag )
 import           Data.Text.Encoding             ( decodeUtf8 )
 
 
@@ -39,7 +41,7 @@ data SortBy =
   | ByNumberOfImages
   deriving (Read)
 
-data TagsInAll = TagsInAll [Id] [Id]
+data TagsInAll = TagsInAll [Id Tag] [Id Tag]
 
 data CreatedAt =
     CreatedAt Date
@@ -52,7 +54,7 @@ search
   -> TagsInAll
   -> CreatedAt
   -> Maybe Text
-  -> Maybe Id
+  -> Maybe (Id Category)
   -> Maybe Text
   -> Maybe Text
   -> Maybe Text

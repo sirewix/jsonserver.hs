@@ -1,9 +1,7 @@
 {-# LANGUAGE
-    OverloadedStrings
-  , DeriveGeneric
+    DeriveGeneric
   , DeriveAnyClass
   , DuplicateRecordFields
-  , FlexibleContexts
   , QuasiQuotes
   , ScopedTypeVariables
   #-}

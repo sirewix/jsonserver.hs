@@ -10,6 +10,7 @@ import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.App              ( HasEnv(..) )
 import           App.Prototype.Log              ( HasLog(..) )
 import           App.Prototype.Database         ( DbAccess(..)
+                                                , Id
                                                 , paginate
                                                 )
 import           Config                         ( Config )
@@ -22,6 +23,7 @@ import           Query.FromQuery                ( FromQuery(..)
                                                 , opt
                                                 , optT
                                                 )
+import           Model.Categories               ( Category )
 import qualified Model.Search                  as M
 
 data Search = Search
@@ -29,7 +31,7 @@ data Search = Search
   , tagsInAll   :: TagsInAll
   , createdAt   :: CreatedAt
   , author      :: Maybe Text
-  , category_id :: Maybe Int
+  , category_id :: Maybe (Id Category)
   , title       :: Maybe Text
   , content     :: Maybe Text
   , everywhere  :: Maybe Text

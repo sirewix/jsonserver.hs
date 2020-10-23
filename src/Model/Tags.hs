@@ -13,7 +13,7 @@ import           App.Prototype.Database         ( (:.)(..)
                                                 , Only(..)
                                                 , Paged
                                                 , Page
-                                                , Id
+                                                , Id(..)
                                                 , execOne
                                                 , queryOne
                                                 , queryPaged
@@ -31,11 +31,13 @@ import           Data.Text                      ( Text )
 import           GHC.Generics                   ( Generic )
 import           Misc                           ( fromJson )
 
+data Tag
+
 newtype TagEssential = TagEssential Text
   deriving (Generic, ToRow)
 
 data TagFull = TagFull
-  { id :: Id
+  { id :: Id Tag
   , tag :: Text
   } deriving Generic
 
@@ -61,18 +63,18 @@ getTags page = do
 createTag
   :: (DbAccess m)
   => TagEssential
-  -> m (Either Text Id)
+  -> m (Either Text (Id Tag))
 createTag = queryOne "INSERT INTO tags (tag) VALUES (?) RETURNING id"
 
 editTag
   :: (DbAccess m)
-  => Id
+  => (Id Tag)
   -> TagEssential
   -> m (Either Text ())
 editTag id tag = execOne "UPDATE tags SET tag = ? WHERE id = ?" (tag :. [id])
 
 deleteTag
   :: (DbAccess m)
-  => Id
+  => (Id Tag)
   -> m (Either Text ())
 deleteTag id = execOne "DELETE FROM tags WHERE id = ?" [id]

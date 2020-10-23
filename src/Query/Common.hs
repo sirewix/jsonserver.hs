@@ -6,6 +6,7 @@
 
 module Query.Common where
 
+import           App.Prototype.Database         ( Id(..) )
 import           Data.Text                      ( Text )
 import           Misc                           ( readT )
 import           Query.FromQuery                ( FromQuery(..)
@@ -15,10 +16,10 @@ import           Query.FromQuery                ( FromQuery(..)
                                                 , opt
                                                 )
 
-newtype Id = Id { unId :: Int }
+newtype QueryId a = QueryId { getQueryId :: Id a }
 
-instance FromQuery Id where
-  parseQuery = fmap Id
+instance FromQuery (QueryId a) where
+  parseQuery = fmap QueryId $ fmap Id
     . filterQuery (> 0)
     $ liftMaybe . readT =<< param "id"
 

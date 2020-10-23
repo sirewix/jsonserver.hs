@@ -25,7 +25,7 @@ import           Misc                           ( showText
                                                 , readT
                                                 )
 import           Network.Wai                    ( Request(..) )
-import           Query.Common                   ( Id(..)
+import           Query.Common                   ( QueryId(..)
                                                 , Token(..)
                                                 )
 import           Query.FromQuery                ( FromQuery(..)
@@ -88,8 +88,8 @@ entry req = do
     ["deattachTag"   ]        -> author Posts.deattachTag
 
     ["post"          ]        -> return BadRequest
-    ["post", pid     ]        -> path public pid (Posts.post . Id)
-    ["post", pid, "comments"] -> path public pid (Comments.getComments . Id)
+    ["post", pid     ]        -> path public pid (Posts.post . QueryId)
+    ["post", pid, "comments"] -> path public pid (Comments.getComments . QueryId)
     ["posts"         ]        -> public Search.posts
 
     ["addComment"    ]        -> user Comments.addComment

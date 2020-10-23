@@ -32,20 +32,22 @@ import           Data.Text                      ( Text )
 import           GHC.Generics                   ( Generic )
 import           Misc                           ( fromJson )
 
+data Category
+
 data CategoryEssential = CategoryEssential
   { name      :: Text
-  , parent_id :: Id
+  , parent_id :: Id Category
   } deriving (Generic, ToRow)
 
 data CategoryPartial = CategoryPartial
   { name      :: Maybe Text
-  , parent_id :: Maybe Id
+  , parent_id :: Maybe (Id Category)
   } deriving (Generic, ToRow)
 
 data CategoryFull = CategoryFull
-  { id        :: Id
+  { id        :: Id Category
   , name      :: Text
-  , parent_id :: Id
+  , parent_id :: Id Category
   } deriving Generic
 
 instance FromJSON CategoryFull
@@ -53,7 +55,7 @@ instance ToJSON CategoryFull
 
 getCategories
   :: (DbAccess m, HasEnv Config m)
-  => Id
+  => Id Category
   -> Page
   -> m (Paged CategoryFull)
 getCategories parentId page = do
@@ -71,12 +73,12 @@ getCategories parentId page = do
 createCategory
   :: (DbAccess m)
   => CategoryEssential
-  -> m (Either Text Id)
+  -> m (Either Text (Id Category))
 createCategory = queryOne "INSERT INTO categories (name, parent_id) VALUES (?, ?) RETURNING id"
 
 editCategory
   :: (DbAccess m)
-  => Id
+  => Id Category
   -> CategoryPartial
   -> m (Either Text ())
 editCategory id entity = execOne [sql|
@@ -88,6 +90,6 @@ editCategory id entity = execOne [sql|
 
 deleteCategory
   :: (DbAccess m)
-  => Id
+  => Id Category
   -> m (Either Text ())
 deleteCategory id = execOne "DELETE FROM categories WHERE id = ?" [id]

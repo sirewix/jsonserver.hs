@@ -17,7 +17,8 @@ import           Config                         ( Config )
 import           Misc                           ( readT
                                                 , showText
                                                 )
-import           Query.Common                   ( Id(..)
+import           Model.Posts                    ( Post )
+import           Query.Common                   ( QueryId(..)
                                                 , Page(..)
                                                 )
 import           Query.FromQuery                ( FromQuery(..)
@@ -32,17 +33,17 @@ import qualified Model.Posts                   as M
 
 post
   :: DbAccess m
-  => Id
+  => QueryId Post
   -> ()
   -> m AppResponse
-post (Id id) () = either (const BadRequest) (AppOk . J.toJSON) <$> M.getPublishedPost id
+post (QueryId id) () = either (const BadRequest) (AppOk . J.toJSON) <$> M.getPublishedPost id
 
 getDraft
   :: (HasLog m, DbAccess m)
   => Author
-  -> Id
+  -> QueryId Post
   -> m AppResponse
-getDraft (Author author) (Id id) =
+getDraft (Author author) (QueryId id) =
   M.getUnpublishedPost id author >>= unwrapRequest BadRequest
     J.toJSON
     Nothing
@@ -71,7 +72,7 @@ createPost
   -> m AppResponse
 createPost (Author author) (PostEssential entity@M.PostEssential{..}) =
   M.createPost author entity >>= unwrapRequest BadRequest
-    (J.Number . fromInteger . toInteger)
+    J.toJSON
     (Just $ \pid -> author <> " created post " <> showText pid <> " titled '" <> title <> "'")
 
 data TagPostRelation = TagPostRelation M.TagPostRelation
@@ -120,9 +121,9 @@ instance FromQuery PostPartial where
 editPost
   :: (HasLog m, DbAccess m)
   => Author
-  -> (Id, PostPartial)
+  -> (QueryId Post, PostPartial)
   -> m AppResponse
-editPost (Author author) (Id pid, PostPartial entity@M.PostPartial{..}) =
+editPost (Author author) (QueryId pid, PostPartial entity@M.PostPartial{..}) =
   M.editPost pid author entity >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ author <> " edited post " <> showText pid)
@@ -130,9 +131,9 @@ editPost (Author author) (Id pid, PostPartial entity@M.PostPartial{..}) =
 publishPost
   :: (HasLog m, DbAccess m)
   => Author
-  -> Id
+  -> QueryId Post
   -> m AppResponse
-publishPost (Author author) (Id pid) =
+publishPost (Author author) (QueryId pid) =
   M.publishPost author pid >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ author <> " published post " <> showText pid)
@@ -140,9 +141,9 @@ publishPost (Author author) (Id pid) =
 deletePost
   :: (HasLog m, DbAccess m)
   => Author
-  -> Id
+  -> QueryId Post
   -> m AppResponse
-deletePost (Author author) (Id pid) =
+deletePost (Author author) (QueryId pid) =
   M.deletePost author pid >>= unwrapRequest BadRequest
     (const J.Null)
     (Just . const $ author <> " deleted post " <> showText pid)

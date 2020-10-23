@@ -1,6 +1,7 @@
 {-# LANGUAGE
     OverloadedStrings
   , FlexibleContexts
+  , GeneralizedNewtypeDeriving
   #-}
 
 module App.Prototype.Database
@@ -8,7 +9,7 @@ module App.Prototype.Database
   , (:.)(..)
   , FromField
   , FromRow(..)
-  , Id
+  , Id(..)
   , Only(..)
   , Page
   , Paged(..)
@@ -32,6 +33,7 @@ import           App.Response                   ( AppResponse(..) )
 import           App.Prototype.Log              ( HasLog(..)
                                                 , Priority(..)
                                                 )
+import           Control.Arrow                  ( first )
 import           Control.Monad.Except           ( MonadError(..)
                                                 , liftEither
                                                 )
@@ -51,7 +53,7 @@ import           Database.PostgreSQL.Simple.FromRow
                                                 , field
                                                 )
 import           Database.PostgreSQL.Simple.FromField
-                                                ( FromField )
+                                                ( FromField(..) )
 import           Database.PostgreSQL.Simple.Types
                                                 ( Query(..)
                                                 , PGArray(..)
@@ -61,7 +63,14 @@ import           Database.PostgreSQL.Simple.SqlQQ
 import qualified Data.Aeson                    as J
 
 
-type Id = Int
+newtype Id a = Id { getId :: Int }
+  deriving (ToField, FromField)
+
+instance Show (Id a) where show = show . getId
+instance Read (Id a) where readsPrec d = map (first Id) . readsPrec d
+instance J.FromJSON (Id a) where parseJSON = fmap Id . J.parseJSON
+instance J.ToJSON (Id a) where toJSON = J.toJSON . getId
+
 type Page = Int
 
 class MonadError Text m => DbAccess m where

@@ -30,15 +30,18 @@ import           Config                         ( Config(..)
 import           GHC.Generics                   ( Generic )
 import           Misc                           ( fromJson )
 import           Model.Users                    ( UserFull(..) )
+import           Model.Posts                    ( Post )
+
+data Comment
 
 data CommentEssential = CommentEssential
-  { post_id  :: Id
+  { post_id  :: Id Post
   , username :: Text
   , comment  :: Text
   } deriving (Generic, ToRow)
 
 data CommentFull = CommentFull
-  { id      :: Id
+  { id      :: Id Comment
   , comment :: Text
   , user    :: UserFull
   } deriving Generic
@@ -48,7 +51,7 @@ instance ToJSON CommentFull
 
 getComments
   :: (DbAccess m, HasEnv Config m)
-  => Id
+  => Id Post
   -> Page
   -> m (Paged CommentFull)
 getComments pid page = do
@@ -80,7 +83,7 @@ getComments pid page = do
 addComment
   :: (DbAccess m)
   => CommentEssential
-  -> m (Either Text Id)
+  -> m (Either Text (Id Comment))
 addComment = queryOne [sql|
     INSERT INTO comments (post, user_id, comment)
     VALUES (?, (SELECT id FROM users WHERE name = ?), ?)
@@ -89,6 +92,6 @@ addComment = queryOne [sql|
 
 deleteComment
   :: (DbAccess m)
-  => Id
+  => Id Comment
   -> m (Either Text ())
 deleteComment id = execOne "DELETE FROM comments WHERE id = ?" [id]
